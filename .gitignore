@@ -1,0 +1,19 @@
+node_modules
+dist
+.env
+.env.local
+
+# Secretos para `wrangler dev`. Nunca al repo.
+.dev.vars
+.wrangler/
+
+# Expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+*.log
+.DS_Store

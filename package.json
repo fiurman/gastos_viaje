@@ -1,0 +1,16 @@
+{
+  "name": "gastos-viaje",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Dividir gastos entre dos personas durante un viaje",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "api": "npm run dev -w @gastos/api",
+    "movil": "npm run start -w @gastos/movil"
+  }
+}

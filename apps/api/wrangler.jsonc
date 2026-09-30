@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "gastos-viaje",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  // La base. El `database_id` lo da Cloudflare al crearla con:
+  //   npx wrangler d1 create gastos
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "gastos",
+      "database_id": "PEGAR_ACA_EL_ID_DE_LA_BASE",
+      "migrations_dir": "migraciones"
+    }
+  ],
+
+  // Para mandar los codigos de acceso y los avisos. Gratis mientras sean
+  // direcciones verificadas de la cuenta, que es justo nuestro caso.
+  "send_email": [
+    { "name": "MAIL" }
+  ],
+
+  "observability": { "enabled": true }
+}
