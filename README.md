@@ -77,6 +77,17 @@ carga algo sin señal, cuando vuelve la conexión se suman los dos y no hay nada
 que reconciliar. Por eso los ids los genera el teléfono y los borrados se marcan
 en vez de borrar.
 
+### Dos relojes, no uno
+
+- `actualizado_en` lo pone el **servidor** y es el cursor de la sincronización.
+- `editado_en` lo pone el **teléfono** y sólo decide quién gana si dos ediciones
+  del mismo gasto chocan.
+
+Al principio era una sola fecha, la del teléfono, usada para las dos cosas. Está
+mal: un teléfono adelantado baja sus gastos siempre, y uno atrasado no los baja
+nunca, que es peor porque se pierden callados. Y en un viaje los teléfonos
+cambian de huso horario.
+
 ## Lo que hay que saber antes de tocar las cuentas
 
 - **Los montos son enteros en centavos.** Nunca decimales. En una app cuyo único
@@ -84,3 +95,6 @@ en vez de borrar.
   puede permitir.
 - **Un gasto borrado se marca, no se borra.** Si se borrara, el teléfono que
   estuvo sin señal no tendría forma de enterarse y lo volvería a subir.
+- **El id de un gasto es global, no por viaje.** Por eso al resolver un conflicto
+  se comprueba que la fila que ya estaba sea del mismo viaje. Sin eso, un
+  miembro de un viaje podía pisar un gasto de otro mandando su id.

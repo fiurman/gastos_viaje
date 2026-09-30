@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "gastos",
-      "database_id": "PEGAR_ACA_EL_ID_DE_LA_BASE",
+      "database_id": "84dce5b8-0b41-4b05-bd6b-2671af42e755",
       "migrations_dir": "migraciones"
     }
   ],
