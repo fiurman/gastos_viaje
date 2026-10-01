@@ -154,6 +154,17 @@ export function useViaje(token: string, usuarioId: string) {
     }
   }, [viaje, refrescarPantalla, sincronizar]);
 
+  /** Borra todos los gastos, en el servidor y en los dos telefonos.
+   *
+   *  El servidor los marca borrados y la sincronizacion siguiente los hace
+   *  desaparecer de cada telefono. No se tocan las bases locales a mano: si se
+   *  vaciara solo la de acá, el otro telefono los seguiria viendo. */
+  const vaciar = useCallback(async () => {
+    if (!viaje) return;
+    await api.vaciar(token, viaje.id, viaje.nombre);
+    await sincronizar(viaje.id);
+  }, [token, viaje, sincronizar]);
+
   /** Cambiar de viaje. Queda recordado. */
   const cambiar = useCallback(async (id: string, nombre: string) => {
     setViaje({ id, nombre });
@@ -174,6 +185,6 @@ export function useViaje(token: string, usuarioId: string) {
 
   return {
     viaje, todos, gastos, miembros, otro, miSaldo, porSubir,
-    cargando, sinRed, error, traer, agregar, borrar, salir, cambiar,
+    cargando, sinRed, error, traer, agregar, borrar, vaciar, salir, cambiar,
   };
 }

@@ -30,6 +30,8 @@ const MENSAJES: Record<string, string> = {
   no_es_tuyo: 'Ese viaje no es tuyo.',
   falta_email: 'Escribí tu dirección de mail.',
   faltan_datos: 'Faltan datos.',
+  confirmacion_no_coincide: 'El nombre del viaje no coincide. Volvé a abrir la app y probá de nuevo.',
+  no_existe: 'Esa función todavía no está en el servidor. Hay que publicarlo.',
   error_interno: 'Algo falló del lado del servidor. Probá de nuevo en un rato.',
   sin_red: 'No hay conexión. Lo que cargues se va a guardar y subir solo.',
 };
@@ -98,6 +100,16 @@ export const api = {
 
   saldo: (token: string, viaje: string) =>
     pedir<SaldoUsuario[]>(`/viajes/${viaje}/saldo`, { token }),
+
+  /** Borra todos los gastos del viaje, para los dos.
+   *
+   *  Pide el nombre del viaje como confirmacion. El servidor lo compara y
+   *  rechaza si no coincide: una llamada que vacia todo sin confirmar se
+   *  dispara sola el dia que algo la invoque por error. */
+  vaciar: (token: string, viaje: string, nombre: string) =>
+    pedir<{ borrados: number }>(`/viajes/${viaje}/vaciar`, {
+      metodo: 'POST', cuerpo: { confirmar: nombre }, token,
+    }),
 
   /** Sube lo que haya pendiente y baja lo que cambio desde `desde`.
    *

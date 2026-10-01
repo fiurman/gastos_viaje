@@ -267,6 +267,27 @@ export async function elegirViaje(viajeId: string): Promise<void> {
   );
 }
 
+/** Preferencias chicas de este telefono, como la densidad de la lista.
+ *
+ *  Van en la base y no en memoria porque una preferencia que se reinicia en
+ *  cada apertura molesta todos los dias. */
+export async function preferencia(clave: string): Promise<string | null> {
+  const db = await abrir();
+  const f = await db.getFirstAsync<{ valor: string }>(
+    `select valor from estado where clave = ?`, `pref:${clave}`,
+  );
+  return f?.valor ?? null;
+}
+
+export async function guardarPreferencia(clave: string, valor: string): Promise<void> {
+  const db = await abrir();
+  await db.runAsync(
+    `insert into estado (clave, valor) values (?, ?)
+     on conflict(clave) do update set valor = excluded.valor`,
+    `pref:${clave}`, valor,
+  );
+}
+
 /** Borra todo. Se usa al cerrar sesion: los gastos de una cuenta no tienen por
  *  que quedar visibles para la siguiente que entre en este telefono. */
 export async function limpiar(): Promise<void> {

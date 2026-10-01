@@ -7,7 +7,7 @@ import { pedirCodigo, quienEs, verificarCodigo, type Sesion } from './auth.ts';
 import { saldoDelViaje } from './saldo.ts';
 import type { Env } from './tipos.ts';
 import {
-  crearViaje, esMiembro, misViajes, sincronizar, sumarMiembro,
+  crearViaje, esMiembro, misViajes, sincronizar, sumarMiembro, vaciarViaje,
   type GastoEntrante,
 } from './viajes.ts';
 
@@ -158,6 +158,32 @@ const rutas: Ruta[] = [
         return error('no_es_tuyo', 403);
       }
       return json(await saldoDelViaje(params.viaje!, env));
+    },
+  },
+
+  {
+    // Borra todos los gastos del viaje. Pide el nombre del viaje en el cuerpo
+    // como confirmacion: una ruta que vacia todo con un POST vacio se dispara
+    // sola el dia que alguien la llame por error.
+    metodo: 'POST', camino: '/viajes/:viaje/vaciar', privada: true,
+    async manejador({ pedido, env, quien, params }) {
+      if (!(await esMiembro(params.viaje!, quien.usuarioId, env))) {
+        return error('no_es_tuyo', 403);
+      }
+      const datos = await cuerpo<{ confirmar?: string }>(pedido);
+      const viaje = await env.DB
+        .prepare(`select nombre from viajes where id = ?`)
+        .bind(params.viaje!).first<{ nombre: string }>();
+
+      // Tolerante a espacios y a mayusculas: la confirmacion esta para que no
+      // se dispare sola, no para hacer deletrear. Un espacio de mas no deberia
+      // dejar a alguien sin poder borrar sus propios gastos.
+      const igual = (x: string | undefined) => (x ?? '').trim().toLocaleLowerCase();
+      if (!viaje || igual(datos?.confirmar) !== igual(viaje.nombre)) {
+        return error('confirmacion_no_coincide');
+      }
+
+      return json({ borrados: await vaciarViaje(params.viaje!, env) });
     },
   },
 

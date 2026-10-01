@@ -83,6 +83,25 @@ export async function sumarMiembro(
   return { usuarioId: u.id, nuevo };
 }
 
+/** Vacia el viaje: marca todos los gastos como borrados.
+ *
+ *  Se marcan, no se eliminan. Si se borraran las filas, el telefono que estuvo
+ *  sin señal no tendria forma de enterarse y los volveria a subir como nuevos.
+ *  Marcados, la proxima sincronizacion de cada telefono los hace desaparecer.
+ *
+ *  `actualizado_en` se pone al momento para que entre en el proximo tramo de
+ *  sincronizacion de todos. */
+export async function vaciarViaje(viajeId: string, env: Env): Promise<number> {
+  const ahoraMismo = ahora();
+  const { meta } = await env.DB
+    .prepare(`update gastos
+                 set borrado_en = ?, actualizado_en = ?, editado_en = ?
+               where viaje_id = ? and borrado_en is null`)
+    .bind(ahoraMismo, ahoraMismo, ahoraMismo, viajeId)
+    .run();
+  return meta.changes ?? 0;
+}
+
 export interface GastoEntrante {
   id: string;
   viajeId: string;

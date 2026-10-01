@@ -15,12 +15,17 @@ import {
 import { ErrorApi } from '../api';
 import { aCentavos, MONEDAS, plata, repartir, type Miembro } from '../datos';
 
-/** Repartos de un toque. El numero es **tu** parte, no la del otro. */
-const ATAJOS = [
+/** Repartos de un toque. El numero es **tu** parte, no la del otro.
+ *
+ *  Los dos extremos se llaman por su nombre y no "100 / 0" porque son los que
+ *  mas se usan y los que peor se leen en porcentajes: lo que se piensa es "esto
+ *  es mio" o "esto me lo tiene que pagar entero", no un numero. */
+const atajos = (suyo: string) => [
   { pct: 50, texto: 'Mitad' },
   { pct: 70, texto: '70 / 30' },
   { pct: 30, texto: '30 / 70' },
-  { pct: 100, texto: 'Todo tuyo' },
+  { pct: 100, texto: 'Solo mío' },
+  { pct: 0, texto: `Solo de ${suyo}` },
 ];
 
 export function NuevoGasto({
@@ -58,6 +63,15 @@ export function NuevoGasto({
   const vistaPrevia = centavos !== null && otro ? partes(centavos) : null;
   const miParte = vistaPrevia?.find((p) => p.usuarioId === yo)?.monto ?? 0;
   const suParte = vistaPrevia?.find((p) => p.usuarioId !== yo)?.monto ?? 0;
+
+  /** Lo que este gasto le mueve al saldo, dicho en castellano. Quien paga queda
+   *  a favor por lo que puso de mas que su parte. */
+  const mueve = pagadoPor === yo ? suParte : miParte;
+  const consecuencia = mueve === 0
+    ? 'Este gasto no cambia el saldo'
+    : pagadoPor === yo
+      ? `${nombreOtro} te queda debiendo ${plata(mueve, moneda)}`
+      : `Le quedás debiendo ${plata(mueve, moneda)}`;
 
   async function guardar() {
     if (centavos === null) return;
@@ -141,7 +155,7 @@ export function NuevoGasto({
 
               <Text style={e.etiqueta}>Cómo se divide</Text>
               <View style={e.chips}>
-                {ATAJOS.map((a) => {
+                {atajos(nombreOtro).map((a) => {
                   const puesto = !aMano && miPct === a.pct;
                   return (
                     <Pressable
@@ -184,18 +198,22 @@ export function NuevoGasto({
                 </View>
               ) : null}
 
-              {/* En plata, que es lo que se discute de verdad. */}
+              {/* En plata, que es lo que se discute de verdad. Y debajo, en
+                  quien queda la deuda: un 0 / 100 se lee mal al apuro. */}
               {vistaPrevia ? (
-                <View style={e.previa}>
-                  <View style={e.previaLado}>
-                    <Text style={e.previaQuien}>Vos</Text>
-                    <Text style={e.previaMonto}>{plata(miParte, moneda)}</Text>
+                <View>
+                  <View style={e.previa}>
+                    <View style={e.previaLado}>
+                      <Text style={e.previaQuien}>Vos</Text>
+                      <Text style={e.previaMonto}>{plata(miParte, moneda)}</Text>
+                    </View>
+                    <View style={e.previaLinea} />
+                    <View style={e.previaLado}>
+                      <Text style={e.previaQuien}>{nombreOtro}</Text>
+                      <Text style={e.previaMonto}>{plata(suParte, moneda)}</Text>
+                    </View>
                   </View>
-                  <View style={e.previaLinea} />
-                  <View style={e.previaLado}>
-                    <Text style={e.previaQuien}>{nombreOtro}</Text>
-                    <Text style={e.previaMonto}>{plata(suParte, moneda)}</Text>
-                  </View>
+                  <Text style={e.consecuencia}>{consecuencia}</Text>
                 </View>
               ) : null}
             </>
@@ -310,6 +328,7 @@ const e = StyleSheet.create({
   previaMonto: {
     fontSize: 19, fontWeight: '700', color: '#15181c', fontVariant: ['tabular-nums'],
   },
+  consecuencia: { fontSize: 13.5, color: '#5f6368', textAlign: 'center', marginTop: 9 },
 
   aviso: { fontSize: 14, color: '#80868b', lineHeight: 20 },
   error: { color: '#c5221f', fontSize: 15, lineHeight: 21 },
