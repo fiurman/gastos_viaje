@@ -158,3 +158,71 @@ export function cuando(fecha: string, hoyISO: string): string {
   if (!mes) return fecha;
   return `${Number(partes[2])} ${mes}`;
 }
+
+/** Los dias de un mes acomodados en semanas, para dibujar un calendario.
+ *
+ *  Devuelve siempre semanas completas de 7, con `null` en los huecos de
+ *  adelante y de atras. Arranca en lunes, que es como se lee un calendario acá
+ *  y no como lo numera JavaScript, donde el domingo es 0.
+ *
+ *  `mes` es `AAAA-MM`. Las fechas salen como `AAAA-MM-DD` para poder compararse
+ *  con las de los gastos sin convertir nada. */
+export function semanasDelMes(mes: string): (string | null)[][] {
+  const [anio, m] = mes.split('-').map(Number);
+  if (!anio || !m) return [];
+
+  const primero = new Date(Date.UTC(anio, m - 1, 1));
+  const dias = new Date(Date.UTC(anio, m, 0)).getUTCDate();
+
+  // getUTCDay da 0 para domingo; lo corremos para que lunes sea 0.
+  const huecoInicial = (primero.getUTCDay() + 6) % 7;
+
+  const celdas: (string | null)[] = Array(huecoInicial).fill(null);
+  for (let d = 1; d <= dias; d++) {
+    celdas.push(`${mes}-${String(d).padStart(2, '0')}`);
+  }
+  while (celdas.length % 7 !== 0) celdas.push(null);
+
+  const semanas: (string | null)[][] = [];
+  for (let i = 0; i < celdas.length; i += 7) semanas.push(celdas.slice(i, i + 7));
+  return semanas;
+}
+
+/** Corre un mes `AAAA-MM` para adelante o para atras. */
+export function correrMes(mes: string, pasos: number): string {
+  const [anio, m] = mes.split('-').map(Number);
+  if (!anio || !m) return mes;
+  const d = new Date(Date.UTC(anio, m - 1 + pasos, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+const NOMBRES_MES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+export function nombreDelMes(mes: string): string {
+  const [anio, m] = mes.split('-').map(Number);
+  const nombre = m ? NOMBRES_MES[m - 1] : undefined;
+  return nombre ? `${nombre} ${anio}` : mes;
+}
+
+/** Suma por una clave cualquiera, de mayor a menor.
+ *
+ *  Sirve para los tres cortes del resumen: por moneda, por quien pago y por
+ *  descripcion. Se ordena acá y no en la pantalla para que los tres se vean
+ *  igual y no haya tres criterios distintos dando vueltas. */
+export function sumarPor<T>(
+  cosas: T[],
+  clave: (x: T) => string,
+  cuanto: (x: T) => number,
+): { clave: string; total: number }[] {
+  const suma = new Map<string, number>();
+  for (const x of cosas) {
+    const k = clave(x);
+    suma.set(k, (suma.get(k) ?? 0) + cuanto(x));
+  }
+  return [...suma.entries()]
+    .map(([k, total]) => ({ clave: k, total }))
+    .sort((a, b) => b.total - a.total || a.clave.localeCompare(b.clave));
+}

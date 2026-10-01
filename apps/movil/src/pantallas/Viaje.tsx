@@ -31,6 +31,16 @@ import { guardarPreferencia, preferencia } from '../local';
 import { cuando, plata, useViaje, type Gasto, type Miembro } from '../datos';
 import { NuevoGasto } from './NuevoGasto';
 import { Sumar } from './Sumar';
+import { Calendario } from './Calendario';
+import { Resumen } from './Resumen';
+
+type Pestana = 'gastos' | 'calendario' | 'resumen';
+
+const PESTANAS: { clave: Pestana; texto: string; icono: 'receipt-long' | 'calendar-month' | 'insights' }[] = [
+  { clave: 'gastos', texto: 'Gastos', icono: 'receipt-long' },
+  { clave: 'calendario', texto: 'Calendario', icono: 'calendar-month' },
+  { clave: 'resumen', texto: 'Resumen', icono: 'insights' },
+];
 
 export function Viaje({
   token, usuarioId, email, onSalir,
@@ -46,6 +56,7 @@ export function Viaje({
   // El tamaño real de la pantalla, para que el boton no se pueda arrastrar
   // fuera de ella.
   const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
+  const [pestana, setPestana] = useState<Pestana>('gastos');
   const [monedasCortas, setMonedasCortas] = useState(false);
   const [gastosCortos, setGastosCortos] = useState(false);
 
@@ -157,7 +168,7 @@ export function Viaje({
 
       {/* La fila de arriba solo aparece si hay algo que decidir: con una moneda
           sola, achicar el saldo no cambia nada. */}
-      {monedas.length > 1 ? (
+      {pestana === 'gastos' && monedas.length > 1 ? (
         <View style={e.filaSeccion}>
           <Text style={e.etiqueta}>Saldo</Text>
           <Pressable onPress={alternar(monedasCortas, setMonedasCortas, 'monedas')} hitSlop={10}>
@@ -166,7 +177,7 @@ export function Viaje({
         </View>
       ) : null}
 
-      {monedas.length > 1 && !monedasCortas ? (
+      {pestana === 'gastos' && monedas.length > 1 && !monedasCortas ? (
         <View style={e.pestanas}>
           {monedas.map((m) => {
             const puesta = m === activa;
@@ -183,12 +194,14 @@ export function Viaje({
         </View>
       ) : null}
 
-      {monedasCortas && monedas.length > 1
-        ? <SaldoTira monedas={v.miSaldo} otro={nombreOtro} gastado={gastado} />
-        : <Saldo
-            saldo={saldo} moneda={activa} otro={nombreOtro}
-            total={activa ? gastado[activa] ?? 0 : 0}
-          />}
+      {pestana === 'gastos' ? (
+        monedasCortas && monedas.length > 1
+          ? <SaldoTira monedas={v.miSaldo} otro={nombreOtro} gastado={gastado} />
+          : <Saldo
+              saldo={saldo} moneda={activa} otro={nombreOtro}
+              total={activa ? gastado[activa] ?? 0 : 0}
+            />
+      ) : null}
 
       {v.sinRed || v.porSubir > 0 ? (
         <View style={e.avisoCaja}>
@@ -202,6 +215,11 @@ export function Viaje({
 
       {v.error ? <Text style={e.error}>{v.error}</Text> : null}
 
+      {pestana === 'calendario' ? (
+        <Calendario gastos={v.gastos} yo={usuarioId} otro={nombreOtro} hoy={hoy} />
+      ) : pestana === 'resumen' ? (
+        <Resumen gastos={v.gastos} yo={usuarioId} otro={nombreOtro} />
+      ) : (
       <FlatList
         data={gastos}
         keyExtractor={(g) => g.id}
@@ -252,13 +270,39 @@ export function Viaje({
           />
         }
       />
+      )}
+
+      {/* Navegacion abajo: la app se usa con una mano y parado. Arriba el
+          pulgar no llega. */}
+      <View style={e.nav}>
+        {PESTANAS.map((s) => {
+          const puesta = pestana === s.clave;
+          return (
+            <Pressable
+              key={s.clave}
+              style={e.navItem}
+              onPress={() => setPestana(s.clave)}
+              accessibilityLabel={s.texto}
+            >
+              <MaterialIcons
+                name={s.icono}
+                size={22}
+                color={puesta ? c.tinta : c.suave}
+              />
+              <Text style={[e.navTexto, puesta && e.navTextoPuesto]}>{s.texto}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
 
       {/* Redondo, con un + y arrastrable, como el del changuito: el gesto ya
           esta aprendido, y donde estorba menos lo decide quien lo usa. */}
-      <Fab
-        onPress={() => setAbierto(true)} caja={caja}
-        color={c.tinta} colorSigno={c.sobreTinta}
-      />
+      {pestana !== 'resumen' ? (
+        <Fab
+          onPress={() => setAbierto(true)} caja={caja}
+          color={c.tinta} colorSigno={c.sobreTinta}
+        />
+      ) : null}
 
       <Modal visible={eligiendo} animationType="slide" onRequestClose={() => setEligiendo(false)}>
         <View style={e.todo}>
@@ -634,6 +678,14 @@ const crear = (c: Paleta) => StyleSheet.create({
   },
 
   lista: { paddingHorizontal: 22, paddingBottom: 110 },
+
+  nav: {
+    flexDirection: 'row', borderTopWidth: 1, borderTopColor: c.linea,
+    backgroundColor: c.papel, paddingTop: 8, paddingBottom: 6,
+  },
+  navItem: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 2 },
+  navTexto: { fontSize: 11, color: c.suave, fontWeight: '500' },
+  navTextoPuesto: { color: c.tinta, fontWeight: '700' },
   vacioCaja: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
   vacioTitulo: { fontFamily: SERIF_MEDIA, fontSize: 22, color: c.tinta },
   vacio: { fontSize: 14.5, color: c.suave, textAlign: 'center', lineHeight: 21 },

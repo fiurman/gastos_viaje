@@ -4,7 +4,10 @@
  *  `cuentas.ts` cambia, esto tiene que seguir en verde antes de tocar nada
  *  mas: es el unico archivo donde un error se traduce en plata mal repartida. */
 
-import { aCentavos, calcularSaldo, cuando, plata, repartir } from './cuentas.ts';
+import {
+  aCentavos, calcularSaldo, correrMes, cuando, nombreDelMes, plata, repartir,
+  semanasDelMes, sumarPor,
+} from './cuentas.ts';
 
 let pasaron = 0;
 let fallaron = 0;
@@ -188,6 +191,49 @@ es('cruzando el año', cuando('2025-12-31', '2026-01-01'), 'ayer');
 es('el año pasado', cuando('2025-12-25', '2026-01-10'), '25 dic');
 es('sin cero adelante', cuando('2026-10-03', '2026-10-20'), '3 oct');
 es('una fecha rota se muestra tal cual', cuando('cualquiera', '2026-10-11'), 'cualquiera');
+
+grupo('el calendario');
+{
+  const oct = semanasDelMes('2026-10');
+  // Octubre de 2026 arranca jueves.
+  es('la primera semana tiene 3 huecos adelante',
+    oct[0]!.slice(0, 4), [null, null, null, '2026-10-01']);
+  es('todas las semanas tienen 7 dias',
+    oct.every((s) => s.length === 7), true);
+  es('estan los 31 dias',
+    oct.flat().filter(Boolean).length, 31);
+  es('el ultimo es el 31', oct.flat().filter(Boolean).at(-1), '2026-10-31');
+}
+{
+  // Febrero bisiesto: el caso donde un calendario hecho a mano se rompe.
+  const feb = semanasDelMes('2024-02');
+  es('febrero de un bisiesto tiene 29', feb.flat().filter(Boolean).length, 29);
+  es('febrero de uno comun tiene 28',
+    semanasDelMes('2026-02').flat().filter(Boolean).length, 28);
+}
+{
+  // Un mes que arranca lunes no lleva huecos adelante.
+  const jun = semanasDelMes('2026-06');
+  es('sin huecos si arranca lunes', jun[0]![0], '2026-06-01');
+}
+es('mes invalido no rompe', semanasDelMes('cualquiera'), []);
+
+es('mes siguiente', correrMes('2026-10', 1), '2026-11');
+es('mes anterior', correrMes('2026-10', -1), '2026-09');
+es('cruzando el año para adelante', correrMes('2026-12', 1), '2027-01');
+es('cruzando el año para atras', correrMes('2026-01', -1), '2025-12');
+es('nombre del mes', nombreDelMes('2026-10'), 'octubre 2026');
+
+grupo('sumar por');
+{
+  const gastos = [
+    { quien: 'a', monto: 100 }, { quien: 'b', monto: 300 }, { quien: 'a', monto: 50 },
+  ];
+  es('agrupa y ordena de mayor a menor',
+    sumarPor(gastos, (g) => g.quien, (g) => g.monto),
+    [{ clave: 'b', total: 300 }, { clave: 'a', total: 150 }]);
+  es('sin nada da vacio', sumarPor([], () => 'x', () => 1), []);
+}
 
 console.log(`\n  ${pasaron} pasaron, ${fallaron} fallaron\n`);
 if (fallaron > 0) process.exitCode = 1;

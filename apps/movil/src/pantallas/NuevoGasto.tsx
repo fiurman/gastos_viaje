@@ -101,7 +101,9 @@ export function NuevoGasto({
       });
       onCerrar();
     } catch (e) {
-      setError(e instanceof ErrorApi ? e.message : 'No se pudo guardar.');
+      // Con la causa real: un "no se pudo guardar" pelado no deja arreglar
+      // nada ni decir que paso.
+      setError(e instanceof ErrorApi ? `${e.message} (${e.codigo})` : `${e}`);
     } finally {
       setGuardando(false);
     }

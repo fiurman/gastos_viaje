@@ -22,7 +22,10 @@ export type Gasto = GastoLocal;
 
 export interface Miembro { usuarioId: string; email: string }
 
-export { MONEDAS, plata, aCentavos, repartir, calcularSaldo, cuando } from './cuentas';
+export {
+  MONEDAS, plata, aCentavos, repartir, calcularSaldo, cuando,
+  semanasDelMes, correrMes, nombreDelMes, sumarPor,
+} from './cuentas';
 export type { NetoPorMoneda } from './cuentas';
 
 export function useViaje(token: string, usuarioId: string) {
@@ -87,7 +90,10 @@ export function useViaje(token: string, usuarioId: string) {
       // Sin red no es un error que haya que mostrar en rojo si ya tenemos datos
       // guardados: la app funciona igual, solo que no esta al dia.
       if (e instanceof ErrorApi && e.codigo === 'sin_red') setSinRed(true);
-      else setError(e instanceof ErrorApi ? e.message : 'No se pudo cargar.');
+      // Lo que no sea de red se muestra con su causa real. Un "no se pudo"
+      // generico manda a buscar el problema a cualquier lado; el mensaje de
+      // abajo dice si fue el servidor, la base del telefono o un bug nuestro.
+      else setError(e instanceof ErrorApi ? `${e.message} (${e.codigo})` : `${e}`);
     } finally {
       setCargando(false);
     }
