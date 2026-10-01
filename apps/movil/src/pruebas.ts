@@ -5,8 +5,8 @@
  *  mas: es el unico archivo donde un error se traduce en plata mal repartida. */
 
 import {
-  aCentavos, calcularSaldo, correrMes, cuando, nombreDelMes, plata, repartir,
-  semanasDelMes, sumarPor,
+  aCentavos, calcularSaldo, correrMes, cuando, fechaValida, limpiarDescripcion,
+  MONTO_MAXIMO, nombreDelMes, plata, repartir, semanasDelMes, sumarPor,
 } from './cuentas.ts';
 
 let pasaron = 0;
@@ -47,6 +47,29 @@ es('cero no es un gasto', aCentavos('0'), null);
 es('negativo no es un gasto', aCentavos('-5'), null);
 es('vacio', aCentavos(''), null);
 es('texto', aCentavos('pizza'), null);
+es('infinito', aCentavos('1e400'), null);
+es('el maximo entra', aCentavos('10000000'), MONTO_MAXIMO);
+es('pasarse del maximo no', aCentavos('10000001'), null);
+es('un numero absurdo no', aCentavos('999999999999'), null);
+es('solo simbolos', aCentavos(',,,'), null);
+es('solo un punto', aCentavos('.'), null);
+
+grupo('fechas que existen de verdad');
+es('una normal', fechaValida('2026-10-11'), true);
+es('29 de febrero bisiesto', fechaValida('2024-02-29'), true);
+es('29 de febrero comun', fechaValida('2026-02-29'), false);
+es('31 de febrero', fechaValida('2026-02-31'), false);
+es('mes 13', fechaValida('2026-13-01'), false);
+es('dia 0', fechaValida('2026-10-00'), false);
+es('sin ceros adelante', fechaValida('2026-1-1'), false);
+es('vacio', fechaValida(''), false);
+es('cualquier cosa', fechaValida('manana'), false);
+
+grupo('descripciones');
+es('saca espacios de mas', limpiarDescripcion('  Pizza   grande  '), 'Pizza grande');
+es('saca saltos de linea', limpiarDescripcion('Pizza\n\ngrande'), 'Pizza grande');
+es('recorta lo muy largo', limpiarDescripcion('x'.repeat(200)).length, 80);
+es('vacio queda vacio', limpiarDescripcion('   '), '');
 
 grupo('el que paga se come el centavo que sobra');
 es('par', repartir(4000, YO, OTRO), [

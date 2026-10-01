@@ -38,6 +38,19 @@ export interface Paleta {
   /** Avisos que no son errores, como lo que falta subir. */
   avisoFondo: string;
   avisoTinta: string;
+  /** Los colores de los graficos, en orden de uso.
+   *
+   *  Acá el color SI lleva informacion: distinguir una categoria de otra es el
+   *  trabajo de la pantalla. Es la excepcion a la regla del resto de la app,
+   *  donde el unico color saturado es el del saldo.
+   *
+   *  Ninguno es verde ni rojo a proposito: esos dos ya significan "te deben" y
+   *  "debes", y repetirlos en un grafico de categorias haria que una barra
+   *  parezca decir algo sobre la deuda cuando no dice nada.
+   *
+   *  Son apagados, no saturados. Seis colores de pizarrita juntos marean, y
+   *  estos conviven con texto encima y al lado. */
+  graficos: string[];
   /** Para el teclado y la barra de estado del sistema. */
   claro: boolean;
 }
@@ -54,6 +67,16 @@ export const CLARA: Paleta = {
   sobreTinta: '#ffffff',
   avisoFondo: '#f7f1e3',
   avisoTinta: '#7a5c1e',
+  // Sobre blanco van mas profundos, si no se lavan.
+  graficos: [
+    '#2f6b78',  // teal
+    '#a9712a',  // ocre
+    '#6e4668',  // ciruela
+    '#3c5a85',  // pizarra
+    '#8a5a3c',  // tierra
+    '#5c6b4a',  // oliva
+    '#7d5a7a',  // malva
+  ],
   claro: true,
 };
 
@@ -75,6 +98,17 @@ export const OSCURA: Paleta = {
   sobreTinta: '#141311',
   avisoFondo: '#2b2415',
   avisoTinta: '#d9bb79',
+  // Sobre casi negro van mas luminosos: los mismos tonos del claro quedarian
+  // barrosos y no se distinguirian entre si.
+  graficos: [
+    '#5fa8b5',
+    '#d9a04a',
+    '#ab7fa3',
+    '#7d9ccf',
+    '#c9906a',
+    '#9aa87f',
+    '#b893b5',
+  ],
   claro: false,
 };
 

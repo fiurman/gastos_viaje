@@ -20,12 +20,16 @@ import {
 } from 'react-native';
 import { ErrorApi } from '../api';
 import { CLARA, OSCURA, useTema, type Paleta } from '../tema';
-import { aCentavos, MONEDAS, plata, repartir, type Miembro } from '../datos';
+import {
+  aCentavos, cuando, DESCRIPCION_MAXIMA, limpiarDescripcion, MONEDAS, plata,
+  repartir, type Miembro,
+} from '../datos';
+import { ElegirFecha } from './ElegirFecha';
 
 /** Lo que se gasta en un viaje, en el orden en que se gasta. Llenan la
  *  descripcion y se pueden seguir editando: son un punto de partida, no una
  *  categoria cerrada. */
-const ATAJOS_TEXTO = ['Comida', 'Café', 'Transporte', 'Hotel', 'Entradas', 'Súper'];
+const ATAJOS_TEXTO = ['Comida', 'Transporte', 'Hotel', 'Súper', 'Entradas'];
 
 /** Repartos de un toque. El numero es **tu** parte, no la del otro.
  *
@@ -43,14 +47,15 @@ const atajos = (suyo: string) => [
 const SIMBOLO: Record<string, string> = { EUR: '€', ARS: '$', USD: 'US$' };
 
 export function NuevoGasto({
-  yo, otro, onCerrar, onGuardar,
+  yo, otro, hoy, onCerrar, onGuardar,
 }: {
   yo: string;
   otro: Miembro | null;
+  hoy: string;
   onCerrar: () => void;
   onGuardar: (g: {
     monto: number; moneda: string; descripcion: string; pagadoPor: string;
-    partes: { usuarioId: string; monto: number }[];
+    fecha: string; partes: { usuarioId: string; monto: number }[];
   }) => Promise<void>;
 }) {
   const { c } = useTema();
@@ -63,11 +68,20 @@ export function NuevoGasto({
   const [miPct, setMiPct] = useState(50);
   const [aMano, setAMano] = useState(false);
   const [pctTexto, setPctTexto] = useState('50');
+  const [fecha, setFecha] = useState(hoy);
+  const [eligiendoFecha, setEligiendoFecha] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const centavos = aCentavos(montoTexto);
-  const puede = centavos !== null && descripcion.trim().length > 0 && !guardando;
+  const texto = limpiarDescripcion(descripcion);
+  const puede = centavos !== null && texto.length > 0 && !guardando;
+
+  // El monto se avisa apenas se escribe, no recien al guardar: si el boton
+  // queda apagado y nadie dice por que, la unica pista es que no pasa nada.
+  const avisoMonto = montoTexto.trim() !== '' && centavos === null
+    ? 'Ese monto no se entiende. Probá con algo como 23,50.'
+    : null;
   const nombreOtro = otro ? otro.email.split('@')[0]! : '';
 
   /** El porcentaje se elige desde tu punto de vista, pero `repartir` lo quiere
@@ -96,7 +110,7 @@ export function NuevoGasto({
     setGuardando(true);
     try {
       await onGuardar({
-        monto: centavos, moneda, descripcion: descripcion.trim(), pagadoPor,
+        monto: centavos, moneda, descripcion: texto, pagadoPor, fecha,
         partes: partes(centavos),
       });
       onCerrar();
@@ -172,7 +186,21 @@ export function NuevoGasto({
           keyboardShouldPersistTaps="handled"
         >
           <View style={e.bloque}>
-            <Text style={e.etiqueta}>¿Qué fue?</Text>
+            {/* La fecha va en la fila de la etiqueta y no en su propio bloque.
+                Casi siempre es hoy y no se toca; ocupar un bloque entero con
+                algo que rara vez se cambia empujaba el reparto fuera de la
+                pantalla, que si se toca siempre. */}
+            <View style={e.filaEtiqueta}>
+              <Text style={e.etiqueta}>¿Qué fue?</Text>
+              <Pressable
+                style={e.pildoraFecha}
+                onPress={() => setEligiendoFecha(true)}
+                disabled={guardando}
+                hitSlop={8}
+              >
+                <Text style={e.pildoraFechaTexto}>{cuando(fecha, hoy)} ▾</Text>
+              </Pressable>
+            </View>
             <View style={e.chips}>
               {ATAJOS_TEXTO.map((x) => {
                 const puesto = descripcion.trim() === x;
@@ -195,8 +223,10 @@ export function NuevoGasto({
               placeholderTextColor={c.suave}
               editable={!guardando}
               returnKeyType="done"
+              maxLength={DESCRIPCION_MAXIMA}
             />
           </View>
+
 
           {otro ? (
             <>
@@ -299,8 +329,17 @@ export function NuevoGasto({
             </View>
           )}
 
+          {avisoMonto ? <Text style={e.error}>{avisoMonto}</Text> : null}
           {error ? <Text style={e.error}>{error}</Text> : null}
         </ScrollView>
+
+        {eligiendoFecha ? (
+          <ElegirFecha
+            fecha={fecha} hoy={hoy}
+            onElegir={setFecha}
+            onCerrar={() => setEligiendoFecha(false)}
+          />
+        ) : null}
 
         <View style={e.pie}>
           <Pressable
@@ -330,7 +369,7 @@ const crear = (c: Paleta) => StyleSheet.create({
   // levantado y el texto va en tinta, no en blanco.
   todo: { flex: 1, backgroundColor: c.claro ? c.tinta : c.fondo },
 
-  tapa: { backgroundColor: c.claro ? c.tinta : c.fondo, paddingBottom: 22 },
+  tapa: { backgroundColor: c.claro ? c.tinta : c.fondo, paddingBottom: 16 },
   barra: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 52, paddingBottom: 10,
@@ -350,7 +389,7 @@ const crear = (c: Paleta) => StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 
-  monedas: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
+  monedas: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 12 },
   moneda: {
     paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,.08)',
@@ -367,7 +406,7 @@ const crear = (c: Paleta) => StyleSheet.create({
   },
   cuerpo: { padding: 20, paddingBottom: 28, gap: 20 },
 
-  bloque: { gap: 10 },
+  bloque: { gap: 9 },
   etiqueta: {
     fontSize: 11.5, fontWeight: '700', color: c.suave,
     textTransform: 'uppercase', letterSpacing: .7,
@@ -385,6 +424,16 @@ const crear = (c: Paleta) => StyleSheet.create({
   campo: {
     borderWidth: 1, borderColor: c.linea, borderRadius: 12,
     paddingHorizontal: 15, paddingVertical: 13, fontSize: 16, color: c.tinta,
+  },
+  filaEtiqueta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
+  pildoraFecha: {
+    paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999,
+    backgroundColor: c.fondo,
+  },
+  pildoraFechaTexto: {
+    fontSize: 12.5, fontWeight: '600', color: c.tinta, textTransform: 'capitalize',
   },
 
   segmentos: {
@@ -406,7 +455,7 @@ const crear = (c: Paleta) => StyleSheet.create({
     textAlign: 'center', color: c.tinta, fontVariant: ['tabular-nums'],
   },
 
-  previa: { backgroundColor: c.fondo, borderRadius: 16, padding: 16, gap: 10 },
+  previa: { backgroundColor: c.fondo, borderRadius: 16, padding: 14, gap: 8 },
   previaFila: { flexDirection: 'row', alignItems: 'center' },
   previaLado: { flex: 1, alignItems: 'center', gap: 3 },
   previaLinea: { width: 1, alignSelf: 'stretch', backgroundColor: c.linea },

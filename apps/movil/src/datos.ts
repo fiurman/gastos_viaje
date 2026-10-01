@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { api, ErrorApi, type SaldoUsuario } from './api';
-import { calcularSaldo } from './cuentas';
+import { calcularSaldo, fechaValida } from './cuentas';
 import {
   cursor, elegirViaje, guardarBajados, guardarCursor, guardarLocal, guardarViaje,
   leerGastos, leerViaje, limpiar, pendientes, viajeElegido, type GastoLocal,
@@ -25,6 +25,7 @@ export interface Miembro { usuarioId: string; email: string }
 export {
   MONEDAS, plata, aCentavos, repartir, calcularSaldo, cuando,
   semanasDelMes, correrMes, nombreDelMes, sumarPor,
+  fechaValida, limpiarDescripcion, MONTO_MAXIMO, DESCRIPCION_MAXIMA,
 } from './cuentas';
 export type { NetoPorMoneda } from './cuentas';
 
@@ -141,7 +142,7 @@ export function useViaje(token: string, usuarioId: string) {
 
   const agregar = useCallback(async (nuevo: {
     monto: number; moneda: string; descripcion: string; pagadoPor: string;
-    partes: { usuarioId: string; monto: number }[];
+    fecha: string; partes: { usuarioId: string; monto: number }[];
   }) => {
     if (!viaje) return;
 
@@ -152,7 +153,9 @@ export function useViaje(token: string, usuarioId: string) {
       monto: nuevo.monto,
       moneda: nuevo.moneda,
       descripcion: nuevo.descripcion,
-      fecha: new Date().toISOString().slice(0, 10),
+      // Lo que eligio la persona, no el reloj: un gasto se puede cargar al dia
+      // siguiente y tiene que quedar en el dia en que paso.
+      fecha: fechaValida(nuevo.fecha) ? nuevo.fecha : new Date().toISOString().slice(0, 10),
       // Quien lo carga es quien despues lo puede borrar. El servidor tambien
       // lo exige: esconder el boton no alcanza.
       creadoPor: usuarioId,

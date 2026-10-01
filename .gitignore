@@ -17,3 +17,6 @@ dist
 
 *.log
 .DS_Store
+
+# Chuleta nuestra, no va al repo.
+notas/

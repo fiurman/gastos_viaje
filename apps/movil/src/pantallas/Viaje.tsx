@@ -404,7 +404,7 @@ export function Viaje({
 
       {abierto && v.viaje ? (
         <NuevoGasto
-          yo={usuarioId} otro={v.otro}
+          yo={usuarioId} otro={v.otro} hoy={hoy}
           onCerrar={() => setAbierto(false)} onGuardar={v.agregar}
         />
       ) : null}

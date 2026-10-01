@@ -91,20 +91,39 @@ export function Calendario({
                 <View
                   style={[
                     e.dia,
-                    x ? { backgroundColor: c.tinta, opacity: fuerza } : null,
+                    // El acento de los graficos, no tinta: un calendario todo
+                    // gris no deja ver de un vistazo donde se gasto.
+                    x ? { backgroundColor: c.graficos[0], opacity: fuerza } : null,
                     elegido && e.diaElegido,
                   ]}
                 />
                 <Text
                   style={[
                     e.numero,
-                    x && fuerza > 0.55 ? { color: c.sobreTinta } : null,
-                    elegido && { color: c.sobreTinta },
+                    x && fuerza > 0.55 ? { color: '#ffffff' } : null,
+                    elegido && { color: '#ffffff' },
                     esHoy && e.numeroHoy,
                   ]}
                 >
                   {Number(fecha.slice(8))}
                 </Text>
+
+                {/* Un punto y no solo la intensidad. La intensidad dice cuanto
+                    se gasto comparado con el dia mas caro, pero el dia mas caro
+                    es el unico que se ve bien cuando hay pocos dias cargados.
+                    El punto contesta la pregunta anterior: si hubo algo o no. */}
+                {x ? (
+                  <View
+                    style={[
+                      e.marca,
+                      {
+                        backgroundColor: elegido || fuerza > 0.55
+                          ? '#ffffff'
+                          : c.graficos[0],
+                      },
+                    ]}
+                  />
+                ) : null}
               </Pressable>
             );
           })}
@@ -128,7 +147,12 @@ export function Calendario({
                   const loPagueYo = g.pagadoPor === yo;
                   return (
                     <View key={g.id} style={e.fila}>
-                      <View style={[e.punto, { backgroundColor: loPagueYo ? c.tinta : c.suave }]} />
+                      <View
+                        style={[
+                          e.punto,
+                          { backgroundColor: loPagueYo ? c.graficos[0] : c.graficos[1] },
+                        ]}
+                      />
                       <Text style={e.descripcion} numberOfLines={1}>{g.descripcion}</Text>
                       <Text style={e.quien}>{loPagueYo ? 'vos' : otro}</Text>
                       <Text style={e.monto}>{plata(g.monto, g.moneda)}</Text>
@@ -189,11 +213,12 @@ const crear = (c: Paleta) => StyleSheet.create({
   dia: {
     position: 'absolute', top: 3, right: 3, bottom: 3, left: 3, borderRadius: 9,
   },
-  diaElegido: { backgroundColor: c.tinta, opacity: 1 },
+  diaElegido: { backgroundColor: c.graficos[0], opacity: 1 },
   numero: { fontSize: 14, color: c.tinta, fontVariant: ['tabular-nums'] },
   // Hoy se marca con el peso, no con otro color: el color ya lo esta usando el
   // gasto del dia y dos cosas que compiten por el mismo canal no se leen.
   numeroHoy: { fontWeight: '900' },
+  marca: { position: 'absolute', bottom: 7, width: 4, height: 4, borderRadius: 2 },
 
   detalleDia: {
     marginTop: 22, paddingTop: 18, borderTopWidth: 1, borderTopColor: c.linea,
@@ -219,7 +244,7 @@ const crear = (c: Paleta) => StyleSheet.create({
   totalFila: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
   totalEtiqueta: { fontSize: 12.5, color: c.suave },
   totalMonto: {
-    fontFamily: SERIF, fontSize: 19, color: c.tinta, fontVariant: ['tabular-nums'],
+    fontFamily: SERIF, fontSize: 19, color: c.graficos[0], fontVariant: ['tabular-nums'],
   },
 });
 

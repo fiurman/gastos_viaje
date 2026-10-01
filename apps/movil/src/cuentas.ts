@@ -54,6 +54,19 @@ export function plata(centavos: number, moneda: string): string {
  *  Se equivoca con quien escriba "1.500" queriendo decir un peso con medio,
  *  que no le pasa a nadie. Antes se equivocaba con "23.50" y cargaba un gasto
  *  cien veces mas grande, que le pasa a cualquiera. */
+/** El monto mas grande que se acepta: mil millones de centavos, o sea diez
+ *  millones de la moneda que sea.
+ *
+ *  No es por miedo al numero grande sino por los errores de tipeo: quien quiso
+ *  escribir 12,50 y apoyo el dedo en el cero termina con un gasto de doce mil
+ *  que descuadra el viaje entero. Y un entero que pasa de 2^53 deja de sumar
+ *  bien en JavaScript, que es el piso duro. */
+export const MONTO_MAXIMO = 1_000_000_000;
+
+/** Lo mas largo que puede ser una descripcion. Lo que no entra en un renglon
+ *  no se lee igual, y sin tope cualquiera puede pegar un texto entero. */
+export const DESCRIPCION_MAXIMA = 80;
+
 export function aCentavos(texto: string): number | null {
   const crudo = texto.trim();
   if (crudo === '') return null;
@@ -70,7 +83,29 @@ export function aCentavos(texto: string): number | null {
 
   const n = Number.parseFloat(normal);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 100);
+
+  const centavos = Math.round(n * 100);
+  if (centavos <= 0 || centavos > MONTO_MAXIMO) return null;
+  return centavos;
+}
+
+/** Si una fecha `AAAA-MM-DD` existe de verdad.
+ *
+ *  No alcanza con que tenga la forma: "2026-02-31" la tiene y no existe.
+ *  JavaScript ademas la acepta y la corre sola a marzo, que es peor que fallar,
+ *  porque el gasto termina en otro dia sin que nadie se entere. */
+export function fechaValida(fecha: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return false;
+  const d = new Date(`${fecha}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return false;
+  // Si la fecha no existia, `Date` la corrio y ya no coincide con el texto.
+  return d.toISOString().slice(0, 10) === fecha;
+}
+
+/** Recorta y limpia una descripcion. Los saltos de linea y los espacios
+ *  repetidos rompen el renglon de la lista sin aportar nada. */
+export function limpiarDescripcion(texto: string): string {
+  return texto.replace(/\s+/g, ' ').trim().slice(0, DESCRIPCION_MAXIMA);
 }
 
 /** Como se parte un gasto entre dos.
