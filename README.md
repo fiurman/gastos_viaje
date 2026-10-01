@@ -53,6 +53,25 @@ La sesión dura un año, así que el código se pide una vez por teléfono.
 sesión larga eso sólo importa el día de la instalación, pero es un punto único
 de falla.
 
+### El día que lo use gente de afuera
+
+Cloudflare manda gratis **sólo a direcciones verificadas de la cuenta**, hasta
+200. Alcanza y sobra mientras seamos dos, y es lo que hace que todo esto salga
+cero pesos. Para mandar a cualquiera hace falta Workers Paid, USD 5 por mes.
+
+La salida sin tarjeta es **Resend**: 3.000 mails por mes, 100 por día, a
+cualquier destinatario, dominio propio y sin tarjeta.
+
+El cambio es barato a propósito: todo el envío está en `apps/api/src/mail.ts` y
+adentro en una sola función, `mandar()`. Cambiar de proveedor es reescribir esas
+cinco líneas por un `fetch`. Ni el login, ni los avisos, ni la base, ni la app se
+enteran.
+
+Lo que sí hay que agregar ese día no es el mail, es **protección contra abuso**.
+Hoy hay un límite de un código por minuto por dirección, que alcanza para dos
+personas. Con desconocidos hace falta además un límite por IP, para que nadie
+pida mil códigos a mil direcciones distintas y queme la cuota.
+
 ## Las monedas no se convierten
 
 La moneda se elige por gasto y el saldo se muestra **separado por moneda**:
