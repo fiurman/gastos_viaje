@@ -1,4 +1,5 @@
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import {
   useFonts, Fraunces_600SemiBold, Fraunces_700Bold,
 } from '@expo-google-fonts/fraunces';
@@ -6,7 +7,9 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Entrar } from './src/pantallas/Entrar';
 import { Viaje } from './src/pantallas/Viaje';
+import { guardarPreferencia, preferencia } from './src/local';
 import { useSesion } from './src/sesion';
+import { CLARA, OSCURA, TemaContexto, type Modo } from './src/tema';
 
 function App() {
   const { sesion, listo, entrar, salir } = useSesion();
@@ -19,30 +22,57 @@ function App() {
   // de abajo si no se los respeta.
   const bordes = useSafeAreaInsets();
 
-  // Mientras se lee el almacenamiento no se sabe si hay sesion. Sin esto, a
-  // quien ya entro le parpadea la pantalla de login cada vez que abre la app.
-  if (!listo || !tipografia) {
+  const delSistema = useColorScheme();
+  const [modo, setModo] = useState<Modo>('sistema');
+  const [temaListo, setTemaListo] = useState(false);
+
+  useEffect(() => {
+    preferencia('tema')
+      .then((x) => { if (x === 'claro' || x === 'oscuro') setModo(x); })
+      .catch(() => {})
+      .finally(() => setTemaListo(true));
+  }, []);
+
+  const cambiarModo = useCallback((m: Modo) => {
+    setModo(m);
+    void guardarPreferencia('tema', m).catch(() => {});
+  }, []);
+
+  const oscuro = modo === 'oscuro' || (modo === 'sistema' && delSistema === 'dark');
+  const c = oscuro ? OSCURA : CLARA;
+
+  // Mientras se lee el almacenamiento no se sabe ni si hay sesion ni que tema
+  // va. Sin esto, a quien ya entro le parpadea el login, y a quien tiene el
+  // oscuro puesto le parpadea una pantalla blanca.
+  if (!listo || !tipografia || !temaListo) {
     return (
-      <View style={[e.todo, e.centrado]}>
-        <ActivityIndicator size="large" color="#1a1815" />
+      <View style={{ flex: 1, backgroundColor: c.papel, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={c.tinta} />
       </View>
     );
   }
 
   return (
-    <View style={[e.todo, { paddingTop: bordes.top, paddingBottom: bordes.bottom }]}>
-      <StatusBar style="dark" />
-      {sesion ? (
-        <Viaje
-          token={sesion.token}
-          usuarioId={sesion.usuarioId}
-          email={sesion.email}
-          onSalir={salir}
-        />
-      ) : (
-        <Entrar onEntro={entrar} />
-      )}
-    </View>
+    <TemaContexto.Provider value={{ c, modo, cambiarModo }}>
+      <View
+        style={{
+          flex: 1, backgroundColor: c.papel,
+          paddingTop: bordes.top, paddingBottom: bordes.bottom,
+        }}
+      >
+        <StatusBar style={oscuro ? 'light' : 'dark'} />
+        {sesion ? (
+          <Viaje
+            token={sesion.token}
+            usuarioId={sesion.usuarioId}
+            email={sesion.email}
+            onSalir={salir}
+          />
+        ) : (
+          <Entrar onEntro={entrar} />
+        )}
+      </View>
+    </TemaContexto.Provider>
   );
 }
 
@@ -55,8 +85,3 @@ export default function Raiz() {
     </SafeAreaProvider>
   );
 }
-
-const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: '#fff' },
-  centrado: { alignItems: 'center', justifyContent: 'center' },
-});

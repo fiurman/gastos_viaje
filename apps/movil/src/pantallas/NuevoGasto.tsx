@@ -19,6 +19,7 @@ import {
   ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { ErrorApi } from '../api';
+import { CLARA, OSCURA, useTema, type Paleta } from '../tema';
 import { aCentavos, MONEDAS, plata, repartir, type Miembro } from '../datos';
 
 /** Lo que se gasta en un viaje, en el orden en que se gasta. Llenan la
@@ -52,6 +53,9 @@ export function NuevoGasto({
     partes: { usuarioId: string; monto: number }[];
   }) => Promise<void>;
 }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const [montoTexto, setMonto] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [moneda, setMoneda] = useState<string>(MONEDAS[0]);
@@ -135,12 +139,12 @@ export function NuevoGasto({
               value={montoTexto}
               onChangeText={setMonto}
               placeholder="0,00"
-              placeholderTextColor="rgba(255,255,255,.28)"
+              placeholderTextColor={c.suave}
               keyboardType="decimal-pad"
               inputMode="decimal"
               autoFocus
               editable={!guardando}
-              selectionColor="#8ab4f8"
+              selectionColor={c.sobreColor}
             />
           </View>
 
@@ -186,7 +190,7 @@ export function NuevoGasto({
               value={descripcion}
               onChangeText={setDescripcion}
               placeholder="o escribilo vos"
-              placeholderTextColor="#9aa0a6"
+              placeholderTextColor={c.suave}
               editable={!guardando}
               returnKeyType="done"
             />
@@ -305,7 +309,7 @@ export function NuevoGasto({
             disabled={!puede}
           >
             {guardando
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color={c.sobreTinta} />
               : (
                 <Text style={e.guardarTexto}>
                   {centavos === null ? 'Guardar' : `Guardar ${plata(centavos, moneda)}`}
@@ -318,27 +322,28 @@ export function NuevoGasto({
   );
 }
 
-const TINTA = '#15181c';
+const crear = (c: Paleta) => StyleSheet.create({
+  // En claro la tapa es tinta sobre blanco y contrasta sola. En oscuro, tinta
+  // sobre tinta serian dos negros pegados, asi que la tapa usa el fondo
+  // levantado y el texto va en tinta, no en blanco.
+  todo: { flex: 1, backgroundColor: c.claro ? c.tinta : c.fondo },
 
-const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: TINTA },
-
-  tapa: { backgroundColor: TINTA, paddingBottom: 22 },
+  tapa: { backgroundColor: c.claro ? c.tinta : c.fondo, paddingBottom: 22 },
   barra: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 52, paddingBottom: 10,
   },
-  tituloBarra: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,.9)' },
-  cancelar: { color: '#8ab4f8', fontSize: 16, width: 66 },
+  tituloBarra: { fontSize: 16, fontWeight: '600', color: c.claro ? 'rgba(255,255,255,.9)' : c.tinta },
+  cancelar: { color: c.claro ? c.sobreColor : c.tinta, fontSize: 16, width: 66 },
 
   montoFila: {
     flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center',
     gap: 8, paddingHorizontal: 20, paddingTop: 10,
   },
-  simbolo: { fontSize: 30, fontWeight: '600', color: '#8ab4f8' },
-  simboloApagado: { color: 'rgba(255,255,255,.28)' },
+  simbolo: { fontSize: 30, fontWeight: '600', color: c.claro ? c.sobreColor : c.suave },
+  simboloApagado: { color: c.suave, opacity: .5 },
   monto: {
-    fontSize: 56, fontWeight: '700', color: '#fff', letterSpacing: -2,
+    fontSize: 56, fontWeight: '700', color: c.claro ? c.sobreColor : c.tinta, letterSpacing: -2,
     minWidth: 120, maxWidth: 260, textAlign: 'left', padding: 0,
     fontVariant: ['tabular-nums'],
   },
@@ -348,76 +353,78 @@ const e = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,.08)',
   },
-  monedaPuesta: { backgroundColor: '#fff' },
+  monedaPuesta: { backgroundColor: c.papel },
   monedaTexto: { fontSize: 12.5, fontWeight: '700', color: 'rgba(255,255,255,.62)', letterSpacing: .4 },
-  monedaTextoPuesto: { color: TINTA },
+  monedaTextoPuesto: { color: c.tinta },
 
   // Se monta sobre el bloque oscuro: la pantalla se lee como dos capas y no
   // como un formulario largo.
   hoja: {
-    flex: 1, backgroundColor: '#fff',
+    flex: 1, backgroundColor: c.papel,
     borderTopLeftRadius: 22, borderTopRightRadius: 22,
   },
   cuerpo: { padding: 20, paddingBottom: 28, gap: 20 },
 
   bloque: { gap: 10 },
   etiqueta: {
-    fontSize: 11.5, fontWeight: '700', color: '#80868b',
+    fontSize: 11.5, fontWeight: '700', color: c.suave,
     textTransform: 'uppercase', letterSpacing: .7,
   },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: {
     paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999,
-    backgroundColor: '#f1f3f4',
+    backgroundColor: c.fondo,
   },
-  chipPuesto: { backgroundColor: TINTA },
-  chipTexto: { fontSize: 13.5, fontWeight: '600', color: '#5f6368' },
-  chipTextoPuesto: { color: '#fff' },
+  chipPuesto: { backgroundColor: c.tinta },
+  chipTexto: { fontSize: 13.5, fontWeight: '600', color: c.suave },
+  chipTextoPuesto: { color: c.sobreTinta },
 
   campo: {
-    borderWidth: 1, borderColor: '#dadce0', borderRadius: 12,
-    paddingHorizontal: 15, paddingVertical: 13, fontSize: 16, color: TINTA,
+    borderWidth: 1, borderColor: c.linea, borderRadius: 12,
+    paddingHorizontal: 15, paddingVertical: 13, fontSize: 16, color: c.tinta,
   },
 
   segmentos: {
-    flexDirection: 'row', backgroundColor: '#f1f3f4', borderRadius: 12, padding: 3,
+    flexDirection: 'row', backgroundColor: c.fondo, borderRadius: 12, padding: 3,
   },
   segmento: { flex: 1, paddingVertical: 11, borderRadius: 9, alignItems: 'center' },
   segmentoPuesto: {
-    backgroundColor: '#fff',
+    backgroundColor: c.papel,
     boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.14)',
   },
-  segmentoTexto: { fontSize: 14.5, fontWeight: '600', color: '#80868b' },
-  segmentoTextoPuesto: { color: TINTA },
+  segmentoTexto: { fontSize: 14.5, fontWeight: '600', color: c.suave },
+  segmentoTextoPuesto: { color: c.tinta },
 
   pctFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pctEtiqueta: { fontSize: 14.5, color: '#5f6368' },
+  pctEtiqueta: { fontSize: 14.5, color: c.suave },
   pctCampo: {
-    borderWidth: 1, borderColor: '#dadce0', borderRadius: 10,
+    borderWidth: 1, borderColor: c.linea, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 9, fontSize: 17, minWidth: 72,
-    textAlign: 'center', color: TINTA, fontVariant: ['tabular-nums'],
+    textAlign: 'center', color: c.tinta, fontVariant: ['tabular-nums'],
   },
 
-  previa: { backgroundColor: '#f8f9fa', borderRadius: 16, padding: 16, gap: 10 },
+  previa: { backgroundColor: c.fondo, borderRadius: 16, padding: 16, gap: 10 },
   previaFila: { flexDirection: 'row', alignItems: 'center' },
   previaLado: { flex: 1, alignItems: 'center', gap: 3 },
-  previaLinea: { width: 1, alignSelf: 'stretch', backgroundColor: '#e1e4e8' },
-  previaQuien: { fontSize: 12, color: '#80868b' },
+  previaLinea: { width: 1, alignSelf: 'stretch', backgroundColor: c.linea },
+  previaQuien: { fontSize: 12, color: c.suave },
   previaMonto: {
-    fontSize: 19, fontWeight: '700', color: TINTA, fontVariant: ['tabular-nums'],
+    fontSize: 19, fontWeight: '700', color: c.tinta, fontVariant: ['tabular-nums'],
   },
-  consecuencia: { fontSize: 13.5, color: '#5f6368', textAlign: 'center' },
+  consecuencia: { fontSize: 13.5, color: c.suave, textAlign: 'center' },
 
-  aviso: { fontSize: 14.5, color: '#80868b', lineHeight: 21 },
-  error: { color: '#c5221f', fontSize: 15, lineHeight: 21 },
+  aviso: { fontSize: 14.5, color: c.suave, lineHeight: 21 },
+  error: { color: c.rojo, fontSize: 15, lineHeight: 21 },
 
-  pie: { backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 22 },
+  pie: { backgroundColor: c.papel, paddingHorizontal: 20, paddingTop: 8, paddingBottom: 22 },
   guardar: {
-    backgroundColor: TINTA, borderRadius: 14, paddingVertical: 16,
+    backgroundColor: c.tinta, borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center', minHeight: 54,
   },
-  guardarApagado: { backgroundColor: '#dadce0' },
-  guardarApretado: { backgroundColor: '#000' },
-  guardarTexto: { color: '#fff', fontSize: 16.5, fontWeight: '600' },
+  guardarApagado: { backgroundColor: c.linea },
+  guardarApretado: { backgroundColor: c.tinta },
+  guardarTexto: { color: c.sobreTinta, fontSize: 16.5, fontWeight: '600' },
 });
+
+const HOJAS = { claro: crear(CLARA), oscuro: crear(OSCURA) };

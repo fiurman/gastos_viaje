@@ -10,6 +10,7 @@ import {
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { api, ErrorApi } from '../api';
+import { CLARA, OSCURA, useTema, type Paleta } from '../tema';
 
 export function Sumar({
   token, viaje, onCerrar, onSumado,
@@ -19,6 +20,9 @@ export function Sumar({
   onCerrar: () => void;
   onSumado: () => void;
 }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const [email, setEmail] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +68,7 @@ export function Sumar({
             value={email}
             onChangeText={setEmail}
             placeholder="su@mail.com"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={c.suave}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -84,7 +88,7 @@ export function Sumar({
           disabled={!puede}
         >
           {guardando
-            ? <ActivityIndicator color="#fff" />
+            ? <ActivityIndicator color={c.sobreTinta} />
             : <Text style={e.botonTexto}>Sumar al viaje</Text>}
         </Pressable>
       </KeyboardAvoidingView>
@@ -92,27 +96,29 @@ export function Sumar({
   );
 }
 
-const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: '#fff' },
+const crear = (c: Paleta) => StyleSheet.create({
+  todo: { flex: 1, backgroundColor: c.papel },
   barra: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingTop: 52, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#eceff1',
+    borderBottomWidth: 1, borderBottomColor: c.linea,
   },
-  tituloBarra: { fontSize: 17, fontWeight: '600', color: '#15181c' },
-  cancelar: { color: '#1a73e8', fontSize: 16, width: 64 },
+  tituloBarra: { fontSize: 17, fontWeight: '600', color: c.tinta },
+  cancelar: { color: c.tinta, fontSize: 16, width: 64 },
   cuerpo: { flex: 1, padding: 20, gap: 16 },
-  ayuda: { fontSize: 16, lineHeight: 23, color: '#5f6368' },
+  ayuda: { fontSize: 16, lineHeight: 23, color: c.suave },
   campo: {
-    borderWidth: 1, borderColor: '#dadce0', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 17, color: '#15181c',
+    borderWidth: 1, borderColor: c.linea, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14, fontSize: 17, color: c.tinta,
   },
-  error: { color: '#c5221f', fontSize: 15, lineHeight: 21 },
+  error: { color: c.rojo, fontSize: 15, lineHeight: 21 },
   boton: {
-    margin: 20, backgroundColor: '#1a73e8', borderRadius: 14,
+    margin: 20, backgroundColor: c.tinta, borderRadius: 14,
     paddingVertical: 17, alignItems: 'center', justifyContent: 'center', minHeight: 56,
   },
-  botonApagado: { backgroundColor: '#c5c9ce' },
-  botonApretado: { backgroundColor: '#1557b0' },
-  botonTexto: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  botonApagado: { backgroundColor: c.linea },
+  botonApretado: { backgroundColor: c.tinta },
+  botonTexto: { color: c.sobreTinta, fontSize: 17, fontWeight: '600' },
 });
+
+const HOJAS = { claro: crear(CLARA), oscuro: crear(OSCURA) };

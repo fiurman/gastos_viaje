@@ -20,8 +20,8 @@ const TOLERANCIA = 6;
 interface Caja { ancho: number; alto: number }
 
 export function Fab({
-  onPress, caja, color,
-}: { onPress: () => void; caja: Caja; color: string }) {
+  onPress, caja, color, colorSigno,
+}: { onPress: () => void; caja: Caja; color: string; colorSigno: string }) {
   const [listo, setListo] = useState(false);
   const pos = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const actual = useRef({ x: 0, y: 0 });
@@ -109,7 +109,7 @@ export function Fab({
       accessibilityLabel="Cargar un gasto"
       {...responder.panHandlers}
     >
-      <Text style={e.texto}>+</Text>
+      <Text style={[e.texto, { color: colorSigno }]}>+</Text>
     </Animated.View>
   );
 }
@@ -124,5 +124,7 @@ const e = StyleSheet.create({
     boxShadow: '0px 4px 14px rgba(26, 24, 21, 0.32)',
     elevation: 6,
   },
-  texto: { color: '#fff', fontSize: 32, lineHeight: 36, fontWeight: '300' },
+  // El color lo pone quien lo usa: en oscuro el circulo es claro, asi que un
+  // signo blanco fijo quedaria invisible.
+  texto: { fontSize: 32, lineHeight: 36, fontWeight: '300' },
 });

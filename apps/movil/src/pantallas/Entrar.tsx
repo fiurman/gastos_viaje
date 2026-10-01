@@ -10,9 +10,13 @@ import {
   StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { api, ErrorApi } from '../api';
+import { CLARA, OSCURA, useTema, type Paleta } from '../tema';
 import type { Guardada } from '../sesion';
 
 export function Entrar({ onEntro }: { onEntro: (s: Guardada) => void }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const [email, setEmail] = useState('');
   const [codigo, setCodigo] = useState('');
   const [paso, setPaso] = useState<'mail' | 'codigo'>('mail');
@@ -74,7 +78,7 @@ export function Entrar({ onEntro }: { onEntro: (s: Guardada) => void }) {
               value={email}
               onChangeText={setEmail}
               placeholder="tu@mail.com"
-              placeholderTextColor="#9aa0a6"
+              placeholderTextColor={c.suave}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -98,7 +102,7 @@ export function Entrar({ onEntro }: { onEntro: (s: Guardada) => void }) {
               value={codigo}
               onChangeText={(t) => setCodigo(t.replace(/\D/g, '').slice(0, 6))}
               placeholder="000000"
-              placeholderTextColor="#9aa0a6"
+              placeholderTextColor={c.suave}
               keyboardType="number-pad"
               inputMode="numeric"
               // Android lo autocompleta desde el SMS o el mail si puede.
@@ -127,6 +131,9 @@ export function Entrar({ onEntro }: { onEntro: (s: Guardada) => void }) {
 function Boton({
   texto, onPress, activo, cargando,
 }: { texto: string; onPress: () => void; activo: boolean; cargando: boolean }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const habilitado = activo && !cargando;
   return (
     <Pressable
@@ -139,30 +146,32 @@ function Boton({
       disabled={!habilitado}
     >
       {cargando
-        ? <ActivityIndicator color="#fff" />
+        ? <ActivityIndicator color={c.sobreTinta} />
         : <Text style={e.botonTexto}>{texto}</Text>}
     </Pressable>
   );
 }
 
-const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: '#fff' },
+const crear = (c: Paleta) => StyleSheet.create({
+  todo: { flex: 1, backgroundColor: c.papel },
   centro: { flex: 1, justifyContent: 'center', padding: 24, gap: 14 },
-  titulo: { fontSize: 30, fontWeight: '700', color: '#15181c', marginBottom: 4 },
-  ayuda: { fontSize: 16, lineHeight: 23, color: '#5f6368' },
-  fuerte: { color: '#15181c', fontWeight: '600' },
+  titulo: { fontSize: 30, fontWeight: '700', color: c.tinta, marginBottom: 4 },
+  ayuda: { fontSize: 16, lineHeight: 23, color: c.suave },
+  fuerte: { color: c.tinta, fontWeight: '600' },
   campo: {
-    borderWidth: 1, borderColor: '#dadce0', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 17, color: '#15181c',
+    borderWidth: 1, borderColor: c.linea, borderRadius: 12,
+    paddingHorizontal: 16, paddingVertical: 14, fontSize: 17, color: c.tinta,
   },
   campoCodigo: { fontSize: 30, letterSpacing: 8, textAlign: 'center', fontVariant: ['tabular-nums'] },
   boton: {
-    backgroundColor: '#1a73e8', borderRadius: 12, paddingVertical: 16,
+    backgroundColor: c.tinta, borderRadius: 12, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center', minHeight: 54,
   },
-  botonApagado: { backgroundColor: '#c5c9ce' },
-  botonApretado: { backgroundColor: '#1557b0' },
-  botonTexto: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  volver: { color: '#1a73e8', fontSize: 15, textAlign: 'center', paddingVertical: 10 },
-  error: { color: '#c5221f', fontSize: 15, lineHeight: 21 },
+  botonApagado: { backgroundColor: c.linea },
+  botonApretado: { backgroundColor: c.tinta },
+  botonTexto: { color: c.sobreTinta, fontSize: 17, fontWeight: '600' },
+  volver: { color: c.tinta, fontSize: 15, textAlign: 'center', paddingVertical: 10 },
+  error: { color: c.rojo, fontSize: 15, lineHeight: 21 },
 });
+
+const HOJAS = { claro: crear(CLARA), oscuro: crear(OSCURA) };

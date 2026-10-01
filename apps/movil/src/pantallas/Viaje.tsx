@@ -25,6 +25,7 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Fab } from '../Fab';
+import { CLARA, MODOS, OSCURA, SERIF, SERIF_MEDIA, useTema, type Paleta } from '../tema';
 import { ErrorApi } from '../api';
 import { guardarPreferencia, preferencia } from '../local';
 import { cuando, plata, useViaje, type Gasto, type Miembro } from '../datos';
@@ -34,6 +35,8 @@ import { Sumar } from './Sumar';
 export function Viaje({
   token, usuarioId, email, onSalir,
 }: { token: string; usuarioId: string; email: string; onSalir: () => void }) {
+  const { c, modo, cambiarModo } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
   const v = useViaje(token, usuarioId);
   const [cargandoMas, setCargandoMas] = useState(false);
   const [abierto, setAbierto] = useState(false);
@@ -65,7 +68,7 @@ export function Viaje({
   if (v.cargando) {
     return (
       <View style={[e.todo, e.centrado]}>
-        <ActivityIndicator size="large" color="#1a73e8" />
+        <ActivityIndicator size="large" color={c.tinta} />
       </View>
     );
   }
@@ -120,6 +123,25 @@ export function Viaje({
           <Text style={e.quien} numberOfLines={1}>
             {v.otro ? `con ${nombreOtro}` : email}
           </Text>
+        </Pressable>
+
+        {/* Cambiar el tema esta donde se mira, no escondido en un menu: es de
+            las pocas cosas que se tocan por el momento del dia y no por lo que
+            se quiere hacer. El icono dice en que modo esta. */}
+        <Pressable
+          onPress={() => {
+            const i = MODOS.findIndex((m) => m.clave === modo);
+            cambiarModo(MODOS[(i + 1) % MODOS.length]!.clave);
+          }}
+          hitSlop={10}
+          style={e.accion}
+          accessibilityLabel={`Apariencia: ${MODOS.find((m) => m.clave === modo)?.texto}`}
+        >
+          <MaterialIcons
+            name={modo === 'claro' ? 'light-mode' : modo === 'oscuro' ? 'dark-mode' : 'brightness-auto'}
+            size={20}
+            color={c.suave}
+          />
         </Pressable>
 
         <Pressable onPress={() => setSumando(true)} hitSlop={10} style={e.accion}>
@@ -226,14 +248,17 @@ export function Viaje({
               await v.traer();
               setCargandoMas(false);
             }}
-            colors={['#1a73e8']}
+            colors={[c.tinta]}
           />
         }
       />
 
       {/* Redondo, con un + y arrastrable, como el del changuito: el gesto ya
           esta aprendido, y donde estorba menos lo decide quien lo usa. */}
-      <Fab onPress={() => setAbierto(true)} caja={caja} color={TINTA} />
+      <Fab
+        onPress={() => setAbierto(true)} caja={caja}
+        color={c.tinta} colorSigno={c.sobreTinta}
+      />
 
       <Modal visible={eligiendo} animationType="slide" onRequestClose={() => setEligiendo(false)}>
         <View style={e.todo}>
@@ -259,6 +284,26 @@ export function Viaje({
               {x.id === v.viaje?.id ? <Text style={e.marcado}>✓</Text> : null}
             </Pressable>
           ))}
+
+          <View style={e.apariencia}>
+            <Text style={e.etiqueta}>Apariencia</Text>
+            <View style={e.modos}>
+              {MODOS.map((m) => {
+                const puesto = m.clave === modo;
+                return (
+                  <Pressable
+                    key={m.clave}
+                    style={[e.modo, puesto && e.modoPuesto]}
+                    onPress={() => cambiarModo(m.clave)}
+                  >
+                    <Text style={[e.modoTexto, puesto && e.modoTextoPuesto]}>
+                      {m.texto}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Separado del resto y en rojo: no se toca por accidente mientras
               se cambia de viaje. */}
@@ -342,6 +387,9 @@ function Saldo({
   otro: string;
   total: number;
 }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   if (!saldo || saldo.neto === 0 || !moneda) {
     return (
       <View style={[e.banda, e.bandaParejo]}>
@@ -397,6 +445,9 @@ function SaldoTira({
   otro: string;
   gastado: Record<string, number>;
 }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const conMovimiento = monedas.filter((m) => m.neto !== 0);
 
   if (conMovimiento.length === 0) {
@@ -438,6 +489,9 @@ function Fila({
 }: {
   gasto: Gasto; yo: string; otro: string; hoy: string; onBorrar: (() => void) | null;
 }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const loPagueYo = gasto.pagadoPor === yo;
   const miParte = gasto.partes.find((p) => p.usuarioId === yo)?.monto ?? 0;
   const mitad = Math.abs(miParte * 2 - gasto.monto) <= 1;
@@ -458,7 +512,7 @@ function Fila({
       <Text style={e.monto}>{plata(gasto.monto, gasto.moneda)}</Text>
       {onBorrar ? (
         <Pressable style={e.tacho} onPress={onBorrar} hitSlop={10}>
-          <MaterialIcons name="delete-outline" size={20} color="#9aa0a6" />
+          <MaterialIcons name="delete-outline" size={20} color={c.suave} />
         </Pressable>
       ) : null}
     </View>
@@ -470,6 +524,9 @@ function Fila({
 function FilaCompacta({
   gasto, yo, hoy, onBorrar,
 }: { gasto: Gasto; yo: string; hoy: string; onBorrar: (() => void) | null }) {
+  const { c } = useTema();
+  const e = c.claro ? HOJAS.claro : HOJAS.oscuro;
+
   const loPagueYo = gasto.pagadoPor === yo;
   return (
     <View style={e.filaCorta}>
@@ -480,66 +537,46 @@ function FilaCompacta({
       <Text style={e.montoCorto}>{plata(gasto.monto, gasto.moneda)}</Text>
       {onBorrar ? (
         <Pressable style={e.tachoChico} onPress={onBorrar} hitSlop={10}>
-          <MaterialIcons name="delete-outline" size={17} color="#b0b5bb" />
+          <MaterialIcons name="delete-outline" size={17} color={c.suave} />
         </Pressable>
       ) : null}
     </View>
   );
 }
 
-/** Paleta.
- *
- *  Sin azul. El azul de Material estaba en los botones, en las pestañas y en
- *  los avisos, y era lo que hacia que la pantalla se pareciera a cualquier app
- *  de Android. Ahora es tinta sobre papel, y el unico color saturado es el del
- *  saldo: cuando el color aparece una sola vez, significa algo. */
-const TINTA = '#1a1815';
-const PAPEL = '#ffffff';
-const SUAVE = '#7c7873';
-const LINEA = '#eae6e1';
-const FONDO = '#f6f4f1';
-const VERDE = '#1c5c34';
-const ROJO = '#8f2217';
-
-/** La serif solo para los numeros y el nombre del viaje. Los textos de
- *  interfaz van en la del sistema: la personalidad esta en las cifras, que es
- *  lo que se mira, no en los botones. */
-const SERIF = 'Fraunces_700Bold';
-const SERIF_MEDIA = 'Fraunces_600SemiBold';
-
-const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: PAPEL },
+const crear = (c: Paleta) => StyleSheet.create({
+  todo: { flex: 1, backgroundColor: c.papel },
   centrado: { alignItems: 'center', justifyContent: 'center' },
 
   cabecera: {
     flexDirection: 'row', alignItems: 'flex-start',
     paddingHorizontal: 22, paddingTop: 10, paddingBottom: 16, gap: 8,
   },
-  nombreViaje: { fontFamily: SERIF, fontSize: 30, color: TINTA, letterSpacing: -.5 },
-  quien: { fontSize: 13, color: SUAVE, marginTop: 3 },
+  nombreViaje: { fontFamily: SERIF, fontSize: 30, color: c.tinta, letterSpacing: -.5 },
+  quien: { fontSize: 13, color: c.suave, marginTop: 3 },
   accion: { paddingHorizontal: 7, paddingVertical: 4 },
-  accionTexto: { color: TINTA, fontSize: 14, fontWeight: '500' },
+  accionTexto: { color: c.tinta, fontSize: 14, fontWeight: '500' },
 
   pestanas: { flexDirection: 'row', gap: 0, paddingHorizontal: 22, paddingBottom: 14 },
   pestana: {
     paddingHorizontal: 2, paddingVertical: 4, marginRight: 18,
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  pestanaPuesta: { borderBottomColor: TINTA },
-  pestanaTexto: { fontSize: 13, fontWeight: '600', color: SUAVE, letterSpacing: .8 },
-  pestanaTextoPuesto: { color: TINTA },
+  pestanaPuesta: { borderBottomColor: c.tinta },
+  pestanaTexto: { fontSize: 13, fontWeight: '600', color: c.suave, letterSpacing: .8 },
+  pestanaTextoPuesto: { color: c.tinta },
 
   // A sangre, sin esquinas redondeadas ni sombra: el color es la pantalla, no
   // un objeto apoyado encima.
   banda: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 18, marginBottom: 4 },
-  verde: { backgroundColor: VERDE },
-  rojo: { backgroundColor: ROJO },
+  verde: { backgroundColor: c.verde },
+  rojo: { backgroundColor: c.rojo },
   bandaEtiqueta: {
     fontSize: 12, color: 'rgba(255,255,255,.78)',
     textTransform: 'uppercase', letterSpacing: 1,
   },
   bandaMonto: {
-    fontFamily: SERIF, fontSize: 46, color: '#fff',
+    fontFamily: SERIF, fontSize: 46, color: c.sobreColor,
     letterSpacing: -1.5, marginTop: 6, fontVariant: ['tabular-nums'],
   },
   bandaPie: {
@@ -550,22 +587,22 @@ const e = StyleSheet.create({
   bandaSeparador: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,.2)' },
   bandaDatoEtiqueta: { fontSize: 10.5, color: 'rgba(255,255,255,.65)', letterSpacing: .5 },
   bandaDatoValor: {
-    fontSize: 14, color: '#fff', fontWeight: '600', fontVariant: ['tabular-nums'],
+    fontSize: 14, color: c.sobreColor, fontWeight: '600', fontVariant: ['tabular-nums'],
   },
 
-  bandaParejo: { backgroundColor: FONDO },
+  bandaParejo: { backgroundColor: c.fondo },
   parejoEtiqueta: {
-    fontSize: 11.5, color: SUAVE, textTransform: 'uppercase', letterSpacing: 1,
+    fontSize: 11.5, color: c.suave, textTransform: 'uppercase', letterSpacing: 1,
   },
-  parejoMonto: { fontFamily: SERIF_MEDIA, fontSize: 30, color: TINTA, marginTop: 4 },
+  parejoMonto: { fontFamily: SERIF_MEDIA, fontSize: 30, color: c.tinta, marginTop: 4 },
 
   tira: { gap: 1, marginBottom: 4 },
   celda: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     gap: 12, paddingHorizontal: 22, paddingVertical: 14,
   },
-  celdaVerde: { backgroundColor: VERDE },
-  celdaRoja: { backgroundColor: ROJO },
+  celdaVerde: { backgroundColor: c.verde },
+  celdaRoja: { backgroundColor: c.rojo },
   celdaTexto: { flexShrink: 1, gap: 2 },
   celdaEtiqueta: {
     fontSize: 11.5, color: 'rgba(255,255,255,.82)',
@@ -573,15 +610,15 @@ const e = StyleSheet.create({
   },
   celdaGastado: { fontSize: 11.5, color: 'rgba(255,255,255,.62)' },
   celdaMonto: {
-    fontFamily: SERIF, fontSize: 22, color: '#fff', letterSpacing: -.5,
+    fontFamily: SERIF, fontSize: 22, color: c.sobreColor, letterSpacing: -.5,
     fontVariant: ['tabular-nums'], flexShrink: 0,
   },
   tiraVacia: {
-    marginBottom: 4, paddingVertical: 18, backgroundColor: FONDO, alignItems: 'center',
+    marginBottom: 4, paddingVertical: 18, backgroundColor: c.fondo, alignItems: 'center',
   },
 
-  avisoCaja: { paddingHorizontal: 22, paddingVertical: 9, backgroundColor: '#f7f1e3' },
-  aviso: { color: '#7a5c1e', fontSize: 12.5, lineHeight: 17 },
+  avisoCaja: { paddingHorizontal: 22, paddingVertical: 9, backgroundColor: c.avisoFondo },
+  aviso: { color: c.avisoTinta, fontSize: 12.5, lineHeight: 17 },
 
   filaSeccion: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -592,72 +629,86 @@ const e = StyleSheet.create({
     paddingBottom: 10, paddingTop: 18,
   },
   etiqueta: {
-    fontSize: 11, fontWeight: '700', color: SUAVE,
+    fontSize: 11, fontWeight: '700', color: c.suave,
     textTransform: 'uppercase', letterSpacing: 1,
   },
 
   lista: { paddingHorizontal: 22, paddingBottom: 110 },
   vacioCaja: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
-  vacioTitulo: { fontFamily: SERIF_MEDIA, fontSize: 22, color: TINTA },
-  vacio: { fontSize: 14.5, color: SUAVE, textAlign: 'center', lineHeight: 21 },
+  vacioTitulo: { fontFamily: SERIF_MEDIA, fontSize: 22, color: c.tinta },
+  vacio: { fontSize: 14.5, color: c.suave, textAlign: 'center', lineHeight: 21 },
 
   // Hairlines y no tarjetas: una lista de renglones se lee mas rapido y no
   // compite con la banda de arriba, que es lo unico que tiene que destacar.
   fila: {
     flexDirection: 'row', alignItems: 'center', gap: 13,
-    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: LINEA,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: c.linea,
   },
-  filaApretada: { backgroundColor: FONDO },
+  filaApretada: { backgroundColor: c.fondo },
   inicial: {
-    width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: LINEA,
+    width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: c.linea,
     alignItems: 'center', justifyContent: 'center',
   },
-  inicialTexto: { fontFamily: SERIF_MEDIA, color: SUAVE, fontSize: 14 },
-  descripcion: { fontSize: 15.5, color: TINTA },
-  detalle: { fontSize: 12.5, color: SUAVE, marginTop: 3 },
+  inicialTexto: { fontFamily: SERIF_MEDIA, color: c.suave, fontSize: 14 },
+  descripcion: { fontSize: 15.5, color: c.tinta },
+  detalle: { fontSize: 12.5, color: c.suave, marginTop: 3 },
   monto: {
-    fontFamily: SERIF_MEDIA, fontSize: 16, color: TINTA, fontVariant: ['tabular-nums'],
+    fontFamily: SERIF_MEDIA, fontSize: 16, color: c.tinta, fontVariant: ['tabular-nums'],
   },
   tacho: { paddingLeft: 12, paddingVertical: 6 },
   tachoChico: { paddingLeft: 10, paddingVertical: 4 },
 
   filaCorta: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LINEA,
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: c.linea,
   },
   punto: { width: 7, height: 7, borderRadius: 4 },
-  puntoMio: { backgroundColor: TINTA },
-  puntoSuyo: { backgroundColor: '#cfc9c1' },
-  descripcionCorta: { flex: 1, fontSize: 14.5, color: TINTA },
-  fechaCorta: { fontSize: 11.5, color: '#a8a39c' },
-  pendiente: { fontSize: 12, color: '#9a6700', fontWeight: '700' },
+  puntoMio: { backgroundColor: c.tinta },
+  puntoSuyo: { backgroundColor: c.suave },
+  descripcionCorta: { flex: 1, fontSize: 14.5, color: c.tinta },
+  fechaCorta: { fontSize: 11.5, color: c.suave },
+  pendiente: { fontSize: 12, color: c.avisoTinta, fontWeight: '700' },
   montoCorto: {
-    fontFamily: SERIF_MEDIA, fontSize: 14.5, color: TINTA, fontVariant: ['tabular-nums'],
+    fontFamily: SERIF_MEDIA, fontSize: 14.5, color: c.tinta, fontVariant: ['tabular-nums'],
   },
 
-  error: { color: ROJO, fontSize: 13.5, paddingHorizontal: 22, paddingBottom: 8 },
+  error: { color: c.rojo, fontSize: 13.5, paddingHorizontal: 22, paddingBottom: 8 },
 
   barraElegir: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 22, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: PAPEL, borderBottomWidth: 1, borderBottomColor: LINEA,
+    backgroundColor: c.papel, borderBottomWidth: 1, borderBottomColor: c.linea,
   },
-  tituloElegir: { fontFamily: SERIF_MEDIA, fontSize: 18, color: TINTA },
+  tituloElegir: { fontFamily: SERIF_MEDIA, fontSize: 18, color: c.tinta },
   opcionViaje: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 22, paddingVertical: 16, backgroundColor: PAPEL,
-    borderBottomWidth: 1, borderBottomColor: LINEA,
+    paddingHorizontal: 22, paddingVertical: 16, backgroundColor: c.papel,
+    borderBottomWidth: 1, borderBottomColor: c.linea,
   },
-  opcionNombre: { fontSize: 16.5, color: TINTA },
-  marcado: { fontSize: 17, color: TINTA, fontWeight: '700' },
+  opcionNombre: { fontSize: 16.5, color: c.tinta },
+  marcado: { fontSize: 17, color: c.tinta, fontWeight: '700' },
+
+  apariencia: { paddingHorizontal: 22, paddingTop: 28, gap: 10 },
+  modos: { flexDirection: 'row', gap: 7 },
+  modo: {
+    flex: 1, paddingVertical: 11, alignItems: 'center',
+    borderWidth: 1, borderColor: c.linea, borderRadius: 2,
+  },
+  modoPuesto: { backgroundColor: c.tinta, borderColor: c.tinta },
+  modoTexto: { fontSize: 13.5, fontWeight: '600', color: c.suave },
+  modoTextoPuesto: { color: c.sobreTinta },
 
   peligro: { padding: 22, paddingTop: 34, gap: 8 },
-  peligroTitulo: { fontFamily: SERIF_MEDIA, fontSize: 17, color: TINTA },
-  peligroAyuda: { fontSize: 13.5, color: SUAVE, lineHeight: 19 },
+  peligroTitulo: { fontFamily: SERIF_MEDIA, fontSize: 17, color: c.tinta },
+  peligroAyuda: { fontSize: 13.5, color: c.suave, lineHeight: 19 },
   botonPeligro: {
-    marginTop: 6, borderWidth: 1, borderColor: '#e0c4bf',
+    marginTop: 6, borderWidth: 1, borderColor: c.rojo,
     borderRadius: 2, paddingVertical: 14, alignItems: 'center',
   },
-  botonPeligroApretado: { backgroundColor: '#f8eceb' },
-  botonPeligroTexto: { color: ROJO, fontSize: 15, fontWeight: '600' },
+  botonPeligroApretado: { backgroundColor: c.fondo },
+  botonPeligroTexto: { color: c.rojo, fontSize: 15, fontWeight: '600' },
 });
+
+/** Las dos hojas se construyen una vez al cargar el modulo. Armarlas en cada
+ *  render seria recrear decenas de objetos de estilo por cada toque. */
+const HOJAS = { claro: crear(CLARA), oscuro: crear(OSCURA) };
