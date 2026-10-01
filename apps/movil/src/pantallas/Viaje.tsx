@@ -24,6 +24,7 @@ import {
   StyleSheet, Text, View,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { Fab } from '../Fab';
 import { ErrorApi } from '../api';
 import { guardarPreferencia, preferencia } from '../local';
 import { cuando, plata, useViaje, type Gasto, type Miembro } from '../datos';
@@ -39,6 +40,9 @@ export function Viaje({
   const [sumando, setSumando] = useState(false);
   const [eligiendo, setEligiendo] = useState(false);
   const [moneda, setMoneda] = useState<string | null>(null);
+  // El tamaño real de la pantalla, para que el boton no se pueda arrastrar
+  // fuera de ella.
+  const [caja, setCaja] = useState({ ancho: 0, alto: 0 });
   const [monedasCortas, setMonedasCortas] = useState(false);
   const [gastosCortos, setGastosCortos] = useState(false);
 
@@ -79,6 +83,12 @@ export function Viaje({
     ? v.gastos
     : v.gastos.filter((g) => g.moneda === activa);
   const saldo = v.miSaldo.find((m) => m.moneda === activa) ?? null;
+  // Lo que llevan gastado entre los dos, por moneda. Es el numero del que se
+  // habla de verdad en un viaje, y hasta ahora no estaba en ningun lado.
+  const gastado: Record<string, number> = {};
+  for (const g of v.gastos) {
+    gastado[g.moneda] = (gastado[g.moneda] ?? 0) + g.monto;
+  }
   const nombreOtro = v.otro ? v.otro.email.split('@')[0]! : 'el otro';
 
   const hoy = new Date().toISOString().slice(0, 10);
@@ -95,7 +105,13 @@ export function Viaje({
   }
 
   return (
-    <View style={e.todo}>
+    <View
+      style={e.todo}
+      onLayout={(ev) => {
+        const { width, height } = ev.nativeEvent.layout;
+        setCaja({ ancho: width, alto: height });
+      }}
+    >
       <View style={e.cabecera}>
         <Pressable style={{ flex: 1 }} onPress={() => setEligiendo(true)}>
           <Text style={e.nombreViaje} numberOfLines={1}>
@@ -146,8 +162,11 @@ export function Viaje({
       ) : null}
 
       {monedasCortas && monedas.length > 1
-        ? <SaldoTira monedas={v.miSaldo} otro={nombreOtro} />
-        : <Saldo saldo={saldo} moneda={activa} otro={nombreOtro} />}
+        ? <SaldoTira monedas={v.miSaldo} otro={nombreOtro} gastado={gastado} />
+        : <Saldo
+            saldo={saldo} moneda={activa} otro={nombreOtro}
+            total={activa ? gastado[activa] ?? 0 : 0}
+          />}
 
       {v.sinRed || v.porSubir > 0 ? (
         <View style={e.avisoCaja}>
@@ -212,14 +231,9 @@ export function Viaje({
         }
       />
 
-      {/* Redondo y con un +, como el del changuito: el gesto ya esta aprendido. */}
-      <Pressable
-        style={({ pressed }) => [e.fab, pressed && e.fabApretado]}
-        onPress={() => setAbierto(true)}
-        accessibilityLabel="Cargar un gasto"
-      >
-        <Text style={e.fabTexto}>+</Text>
-      </Pressable>
+      {/* Redondo, con un + y arrastrable, como el del changuito: el gesto ya
+          esta aprendido, y donde estorba menos lo decide quien lo usa. */}
+      <Fab onPress={() => setAbierto(true)} caja={caja} color={TINTA} />
 
       <Modal visible={eligiendo} animationType="slide" onRequestClose={() => setEligiendo(false)}>
         <View style={e.todo}>
@@ -311,34 +325,57 @@ export function Viaje({
 
 /** El saldo de la moneda que se esta mirando, en una tarjeta que cambia de
  *  color. Verde si te deben, rojo si debés: se entiende sin leer. */
+/** El saldo, a sangre de borde a borde.
+ *
+ *  Una banda y no una tarjeta flotando sobre gris: la tarjeta con sombra y
+ *  esquinas redondeadas es la forma en que se ve cualquier app de Android, y la
+ *  pantalla terminaba pareciendose a todas. Llegando al borde, el color es la
+ *  pantalla y no un objeto apoyado encima.
+ *
+ *  El monto va en serif. En una app de gastos nadie lo hace, y es la decision
+ *  que mas separa esta pantalla de las demas. */
 function Saldo({
-  saldo, moneda, otro,
+  saldo, moneda, otro, total,
 }: {
   saldo: { neto: number; puso: number; leToca: number } | null;
   moneda: string | null;
   otro: string;
+  total: number;
 }) {
   if (!saldo || saldo.neto === 0 || !moneda) {
     return (
-      <View style={[e.tarjeta, e.tarjetaParejo]}>
-        <Text style={e.parejo}>
-          {moneda ? `Están a mano en ${moneda}` : 'Están a mano'}
+      <View style={[e.banda, e.bandaParejo]}>
+        <Text style={e.parejoEtiqueta}>
+          {moneda ? `En ${moneda}` : 'Por ahora'}
         </Text>
+        <Text style={e.parejoMonto}>Están a mano</Text>
       </View>
     );
   }
 
   const aFavor = saldo.neto > 0;
   return (
-    <View style={[e.tarjeta, aFavor ? e.verde : e.rojo]}>
-      <Text style={e.tarjetaEtiqueta}>
+    <View style={[e.banda, aFavor ? e.verde : e.rojo]}>
+      <Text style={e.bandaEtiqueta}>
         {aFavor ? `${otro} te debe` : `Le debés a ${otro}`}
       </Text>
-      <Text style={e.tarjetaMonto}>{plata(saldo.neto, moneda)}</Text>
-      <View style={e.tarjetaPie}>
-        <Text style={e.tarjetaPieTexto}>
-          Pusiste {plata(saldo.puso, moneda)} · te toca {plata(saldo.leToca, moneda)}
-        </Text>
+      <Text style={e.bandaMonto}>{plata(saldo.neto, moneda)}</Text>
+
+      <View style={e.bandaPie}>
+        <View style={e.bandaDato}>
+          <Text style={e.bandaDatoEtiqueta}>Pusiste</Text>
+          <Text style={e.bandaDatoValor}>{plata(saldo.puso, moneda)}</Text>
+        </View>
+        <View style={e.bandaSeparador} />
+        <View style={e.bandaDato}>
+          <Text style={e.bandaDatoEtiqueta}>Te toca</Text>
+          <Text style={e.bandaDatoValor}>{plata(saldo.leToca, moneda)}</Text>
+        </View>
+        <View style={e.bandaSeparador} />
+        <View style={e.bandaDato}>
+          <Text style={e.bandaDatoEtiqueta}>Gastaron</Text>
+          <Text style={e.bandaDatoValor}>{plata(total, moneda)}</Text>
+        </View>
       </View>
     </View>
   );
@@ -354,14 +391,18 @@ function Saldo({
  *  unos 150 puntos para cada monto, y "$ 1.250.000,00" no entra. Un renglon
  *  por moneda ocupa menos alto que dos cajas y ademas nunca corta un numero. */
 function SaldoTira({
-  monedas, otro,
-}: { monedas: { moneda: string; neto: number }[]; otro: string }) {
+  monedas, otro, gastado,
+}: {
+  monedas: { moneda: string; neto: number }[];
+  otro: string;
+  gastado: Record<string, number>;
+}) {
   const conMovimiento = monedas.filter((m) => m.neto !== 0);
 
   if (conMovimiento.length === 0) {
     return (
       <View style={e.tiraVacia}>
-        <Text style={e.parejo}>Están a mano</Text>
+        <Text style={e.parejoMonto}>Están a mano</Text>
       </View>
     );
   }
@@ -372,17 +413,19 @@ function SaldoTira({
         const aFavor = m.neto > 0;
         return (
           <View key={m.moneda} style={[e.celda, aFavor ? e.celdaVerde : e.celdaRoja]}>
-            <Text
-              style={[e.celdaEtiqueta, aFavor ? e.textoVerde : e.textoRojo]}
-              numberOfLines={1}
-            >
-              {m.moneda} · {aFavor ? `${otro} te debe` : 'le debés'}
-            </Text>
+            <View style={e.celdaTexto}>
+              <Text style={e.celdaEtiqueta} numberOfLines={1}>
+                {m.moneda} · {aFavor ? `${otro} te debe` : 'le debés'}
+              </Text>
+              {/* El total, chiquito. Es contexto: sin el, un saldo de 15 no
+                  dice si gastaron poco o si ya se emparejaron casi todo. */}
+              <Text style={e.celdaGastado} numberOfLines={1}>
+                gastaron {plata(gastado[m.moneda] ?? 0, m.moneda)}
+              </Text>
+            </View>
             {/* El monto no se achica ni se corta: es el dato. Lo que cede
-                cuando falta ancho es la etiqueta, que se puede adivinar. */}
-            <Text style={[e.celdaMonto, aFavor ? e.textoVerde : e.textoRojo]}>
-              {plata(m.neto, m.moneda)}
-            </Text>
+                cuando falta ancho es el texto, que se puede adivinar. */}
+            <Text style={e.celdaMonto}>{plata(m.neto, m.moneda)}</Text>
           </View>
         );
       })}
@@ -444,155 +487,177 @@ function FilaCompacta({
   );
 }
 
+/** Paleta.
+ *
+ *  Sin azul. El azul de Material estaba en los botones, en las pestañas y en
+ *  los avisos, y era lo que hacia que la pantalla se pareciera a cualquier app
+ *  de Android. Ahora es tinta sobre papel, y el unico color saturado es el del
+ *  saldo: cuando el color aparece una sola vez, significa algo. */
+const TINTA = '#1a1815';
+const PAPEL = '#ffffff';
+const SUAVE = '#7c7873';
+const LINEA = '#eae6e1';
+const FONDO = '#f6f4f1';
+const VERDE = '#1c5c34';
+const ROJO = '#8f2217';
+
+/** La serif solo para los numeros y el nombre del viaje. Los textos de
+ *  interfaz van en la del sistema: la personalidad esta en las cifras, que es
+ *  lo que se mira, no en los botones. */
+const SERIF = 'Fraunces_700Bold';
+const SERIF_MEDIA = 'Fraunces_600SemiBold';
+
 const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: '#f4f5f7' },
+  todo: { flex: 1, backgroundColor: PAPEL },
   centrado: { alignItems: 'center', justifyContent: 'center' },
 
   cabecera: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12, gap: 6,
+    flexDirection: 'row', alignItems: 'flex-start',
+    paddingHorizontal: 22, paddingTop: 10, paddingBottom: 16, gap: 8,
   },
-  nombreViaje: { fontSize: 24, fontWeight: '700', color: '#15181c' },
-  quien: { fontSize: 13, color: '#7a8089', marginTop: 2 },
-  accion: { paddingHorizontal: 8, paddingVertical: 4 },
-  accionTexto: { color: '#1a73e8', fontSize: 15 },
+  nombreViaje: { fontFamily: SERIF, fontSize: 30, color: TINTA, letterSpacing: -.5 },
+  quien: { fontSize: 13, color: SUAVE, marginTop: 3 },
+  accion: { paddingHorizontal: 7, paddingVertical: 4 },
+  accionTexto: { color: TINTA, fontSize: 14, fontWeight: '500' },
 
-  pestanas: { flexDirection: 'row', gap: 7, paddingHorizontal: 20, paddingBottom: 12 },
+  pestanas: { flexDirection: 'row', gap: 0, paddingHorizontal: 22, paddingBottom: 14 },
   pestana: {
-    paddingHorizontal: 15, paddingVertical: 7, borderRadius: 999,
-    backgroundColor: '#e6e8ec',
+    paddingHorizontal: 2, paddingVertical: 4, marginRight: 18,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
-  pestanaPuesta: { backgroundColor: '#15181c' },
-  pestanaTexto: { fontSize: 13, fontWeight: '700', color: '#5f6368', letterSpacing: .3 },
-  pestanaTextoPuesto: { color: '#fff' },
+  pestanaPuesta: { borderBottomColor: TINTA },
+  pestanaTexto: { fontSize: 13, fontWeight: '600', color: SUAVE, letterSpacing: .8 },
+  pestanaTextoPuesto: { color: TINTA },
 
-  tarjeta: { marginHorizontal: 20, marginBottom: 12, borderRadius: 18, padding: 18 },
-  rojo: { backgroundColor: '#a52019' },
-  verde: { backgroundColor: '#1a7336' },
-  tarjetaParejo: { backgroundColor: '#e6e8ec', alignItems: 'center', paddingVertical: 26 },
-  parejo: { fontSize: 17, color: '#5f6368' },
-  tarjetaEtiqueta: { fontSize: 13, color: 'rgba(255,255,255,.85)' },
-  tarjetaMonto: {
-    fontSize: 38, fontWeight: '700', color: '#fff',
-    letterSpacing: -1, marginTop: 2, fontVariant: ['tabular-nums'],
+  // A sangre, sin esquinas redondeadas ni sombra: el color es la pantalla, no
+  // un objeto apoyado encima.
+  banda: { paddingHorizontal: 22, paddingTop: 22, paddingBottom: 18, marginBottom: 4 },
+  verde: { backgroundColor: VERDE },
+  rojo: { backgroundColor: ROJO },
+  bandaEtiqueta: {
+    fontSize: 12, color: 'rgba(255,255,255,.78)',
+    textTransform: 'uppercase', letterSpacing: 1,
   },
-  tarjetaPie: {
-    marginTop: 12, paddingTop: 10,
-    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,.22)',
+  bandaMonto: {
+    fontFamily: SERIF, fontSize: 46, color: '#fff',
+    letterSpacing: -1.5, marginTop: 6, fontVariant: ['tabular-nums'],
   },
-  tarjetaPieTexto: { fontSize: 12, color: 'rgba(255,255,255,.82)' },
+  bandaPie: {
+    flexDirection: 'row', alignItems: 'center', marginTop: 18, paddingTop: 14,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,.2)',
+  },
+  bandaDato: { flex: 1, gap: 2 },
+  bandaSeparador: { width: 1, height: 26, backgroundColor: 'rgba(255,255,255,.2)' },
+  bandaDatoEtiqueta: { fontSize: 10.5, color: 'rgba(255,255,255,.65)', letterSpacing: .5 },
+  bandaDatoValor: {
+    fontSize: 14, color: '#fff', fontWeight: '600', fontVariant: ['tabular-nums'],
+  },
 
-  tira: { gap: 6, marginHorizontal: 20, marginBottom: 12 },
+  bandaParejo: { backgroundColor: FONDO },
+  parejoEtiqueta: {
+    fontSize: 11.5, color: SUAVE, textTransform: 'uppercase', letterSpacing: 1,
+  },
+  parejoMonto: { fontFamily: SERIF_MEDIA, fontSize: 30, color: TINTA, marginTop: 4 },
+
+  tira: { gap: 1, marginBottom: 4 },
   celda: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    gap: 12, borderRadius: 13, paddingHorizontal: 14, paddingVertical: 12,
+    gap: 12, paddingHorizontal: 22, paddingVertical: 14,
   },
-  celdaVerde: { backgroundColor: '#e3f1e7' },
-  celdaRoja: { backgroundColor: '#fbe5e3' },
-  textoVerde: { color: '#14612c' },
-  textoRojo: { color: '#8c1d18' },
-  // `flexShrink` en la etiqueta y no en el monto: cuando falta ancho, lo que
-  // se achica es el texto, nunca la cifra.
-  celdaEtiqueta: { flexShrink: 1, fontSize: 12.5, fontWeight: '600', letterSpacing: .2 },
+  celdaVerde: { backgroundColor: VERDE },
+  celdaRoja: { backgroundColor: ROJO },
+  celdaTexto: { flexShrink: 1, gap: 2 },
+  celdaEtiqueta: {
+    fontSize: 11.5, color: 'rgba(255,255,255,.82)',
+    textTransform: 'uppercase', letterSpacing: .8,
+  },
+  celdaGastado: { fontSize: 11.5, color: 'rgba(255,255,255,.62)' },
   celdaMonto: {
-    fontSize: 20, fontWeight: '700', letterSpacing: -.4,
+    fontFamily: SERIF, fontSize: 22, color: '#fff', letterSpacing: -.5,
     fontVariant: ['tabular-nums'], flexShrink: 0,
   },
   tiraVacia: {
-    marginHorizontal: 20, marginBottom: 12, paddingVertical: 16,
-    backgroundColor: '#e6e8ec', borderRadius: 13, alignItems: 'center',
+    marginBottom: 4, paddingVertical: 18, backgroundColor: FONDO, alignItems: 'center',
   },
 
-  avisoCaja: {
-    marginHorizontal: 20, marginBottom: 10, paddingHorizontal: 14, paddingVertical: 10,
-    backgroundColor: '#fef7e0', borderRadius: 12,
-  },
-  aviso: { color: '#9a6700', fontSize: 13, lineHeight: 18 },
+  avisoCaja: { paddingHorizontal: 22, paddingVertical: 9, backgroundColor: '#f7f1e3' },
+  aviso: { color: '#7a5c1e', fontSize: 12.5, lineHeight: 17 },
 
   filaSeccion: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingBottom: 7,
+    paddingHorizontal: 22, paddingBottom: 8, paddingTop: 2,
   },
   filaEtiqueta: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingBottom: 8,
+    paddingBottom: 10, paddingTop: 18,
   },
   etiqueta: {
-    fontSize: 12, fontWeight: '700', color: '#7a8089',
-    textTransform: 'uppercase', letterSpacing: .6,
+    fontSize: 11, fontWeight: '700', color: SUAVE,
+    textTransform: 'uppercase', letterSpacing: 1,
   },
 
-  lista: { paddingHorizontal: 20, paddingBottom: 110 },
+  lista: { paddingHorizontal: 22, paddingBottom: 110 },
   vacioCaja: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 8 },
-  vacioTitulo: { fontSize: 19, fontWeight: '600', color: '#5f6368' },
-  vacio: { fontSize: 15, color: '#9aa0a6', textAlign: 'center', lineHeight: 22 },
+  vacioTitulo: { fontFamily: SERIF_MEDIA, fontSize: 22, color: TINTA },
+  vacio: { fontSize: 14.5, color: SUAVE, textAlign: 'center', lineHeight: 21 },
 
+  // Hairlines y no tarjetas: una lista de renglones se lee mas rapido y no
+  // compite con la banda de arriba, que es lo unico que tiene que destacar.
   fila: {
-    flexDirection: 'row', alignItems: 'center', gap: 11,
-    backgroundColor: '#fff', borderRadius: 13, padding: 12, marginBottom: 7,
+    flexDirection: 'row', alignItems: 'center', gap: 13,
+    paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: LINEA,
   },
-  filaApretada: { backgroundColor: '#eceef1' },
+  filaApretada: { backgroundColor: FONDO },
   inicial: {
-    width: 34, height: 34, borderRadius: 17, backgroundColor: '#eceef1',
+    width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: LINEA,
     alignItems: 'center', justifyContent: 'center',
   },
-  inicialTexto: { color: '#5f6368', fontSize: 13, fontWeight: '700' },
-  descripcion: { fontSize: 15.5, color: '#15181c' },
-  detalle: { fontSize: 12.5, color: '#7a8089', marginTop: 2 },
-  monto: { fontSize: 15.5, fontWeight: '600', color: '#15181c', fontVariant: ['tabular-nums'] },
-  // Separado del importe: con el tacho pegado al numero, el dedo que va a
-  // mirar cuanto salio termina borrando el gasto.
-  tacho: { paddingLeft: 10, paddingVertical: 6 },
-  tachoChico: { paddingLeft: 8, paddingVertical: 4 },
+  inicialTexto: { fontFamily: SERIF_MEDIA, color: SUAVE, fontSize: 14 },
+  descripcion: { fontSize: 15.5, color: TINTA },
+  detalle: { fontSize: 12.5, color: SUAVE, marginTop: 3 },
+  monto: {
+    fontFamily: SERIF_MEDIA, fontSize: 16, color: TINTA, fontVariant: ['tabular-nums'],
+  },
+  tacho: { paddingLeft: 12, paddingVertical: 6 },
+  tachoChico: { paddingLeft: 10, paddingVertical: 4 },
 
   filaCorta: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#fff', paddingHorizontal: 12, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: '#eceef1',
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LINEA,
   },
-  punto: { width: 8, height: 8, borderRadius: 4 },
-  puntoMio: { backgroundColor: '#1a73e8' },
-  puntoSuyo: { backgroundColor: '#c8ccd2' },
-  descripcionCorta: { flex: 1, fontSize: 14.5, color: '#15181c' },
-  fechaCorta: { fontSize: 11.5, color: '#9aa0a6' },
+  punto: { width: 7, height: 7, borderRadius: 4 },
+  puntoMio: { backgroundColor: TINTA },
+  puntoSuyo: { backgroundColor: '#cfc9c1' },
+  descripcionCorta: { flex: 1, fontSize: 14.5, color: TINTA },
+  fechaCorta: { fontSize: 11.5, color: '#a8a39c' },
   pendiente: { fontSize: 12, color: '#9a6700', fontWeight: '700' },
-  montoCorto: { fontSize: 14.5, fontWeight: '600', color: '#15181c', fontVariant: ['tabular-nums'] },
-
-  fab: {
-    position: 'absolute', right: 22, bottom: 26,
-    width: 60, height: 60, borderRadius: 30, backgroundColor: '#15181c',
-    alignItems: 'center', justifyContent: 'center',
-    // boxShadow y no shadow*: las props viejas estan deprecadas y avisan en
-    // cada render.
-    boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.3)',
-    elevation: 6,
+  montoCorto: {
+    fontFamily: SERIF_MEDIA, fontSize: 14.5, color: TINTA, fontVariant: ['tabular-nums'],
   },
-  fabApretado: { backgroundColor: '#000' },
-  fabTexto: { color: '#fff', fontSize: 34, lineHeight: 38, fontWeight: '300' },
 
-  error: { color: '#c5221f', fontSize: 14, paddingHorizontal: 20, paddingBottom: 8 },
+  error: { color: ROJO, fontSize: 13.5, paddingHorizontal: 22, paddingBottom: 8 },
 
   barraElegir: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 14,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eceff1',
+    paddingHorizontal: 22, paddingTop: 52, paddingBottom: 14,
+    backgroundColor: PAPEL, borderBottomWidth: 1, borderBottomColor: LINEA,
   },
-  tituloElegir: { fontSize: 17, fontWeight: '600', color: '#15181c' },
+  tituloElegir: { fontFamily: SERIF_MEDIA, fontSize: 18, color: TINTA },
   opcionViaje: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#eceff1',
+    paddingHorizontal: 22, paddingVertical: 16, backgroundColor: PAPEL,
+    borderBottomWidth: 1, borderBottomColor: LINEA,
   },
-  opcionNombre: { fontSize: 17, color: '#15181c' },
-  marcado: { fontSize: 18, color: '#1a73e8', fontWeight: '700' },
+  opcionNombre: { fontSize: 16.5, color: TINTA },
+  marcado: { fontSize: 17, color: TINTA, fontWeight: '700' },
 
-  peligro: { padding: 20, paddingTop: 34, gap: 8 },
-  peligroTitulo: { fontSize: 16, fontWeight: '600', color: '#15181c' },
-  peligroAyuda: { fontSize: 13.5, color: '#7a8089', lineHeight: 19 },
+  peligro: { padding: 22, paddingTop: 34, gap: 8 },
+  peligroTitulo: { fontFamily: SERIF_MEDIA, fontSize: 17, color: TINTA },
+  peligroAyuda: { fontSize: 13.5, color: SUAVE, lineHeight: 19 },
   botonPeligro: {
-    marginTop: 6, borderWidth: 1, borderColor: '#e8b5b2', backgroundColor: '#fbe5e3',
-    borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+    marginTop: 6, borderWidth: 1, borderColor: '#e0c4bf',
+    borderRadius: 2, paddingVertical: 14, alignItems: 'center',
   },
-  botonPeligroApretado: { backgroundColor: '#f6d2cf' },
-  botonPeligroTexto: { color: '#8c1d18', fontSize: 15.5, fontWeight: '600' },
+  botonPeligroApretado: { backgroundColor: '#f8eceb' },
+  botonPeligroTexto: { color: ROJO, fontSize: 15, fontWeight: '600' },
 });

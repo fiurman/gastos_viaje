@@ -1,4 +1,7 @@
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import {
+  useFonts, Fraunces_600SemiBold, Fraunces_700Bold,
+} from '@expo-google-fonts/fraunces';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Entrar } from './src/pantallas/Entrar';
@@ -7,16 +10,21 @@ import { useSesion } from './src/sesion';
 
 function App() {
   const { sesion, listo, entrar, salir } = useSesion();
+  // Una serif para los montos en una app de gastos no la tiene nadie, y es lo
+  // que mas separa esta pantalla de cualquier otra de Android. Los textos de
+  // interfaz siguen en la del sistema: la personalidad va en los numeros, no
+  // en los botones.
+  const [tipografia] = useFonts({ Fraunces_600SemiBold, Fraunces_700Bold });
   // Los margenes del sistema a mano: en Android la barra de navegacion tapa lo
   // de abajo si no se los respeta.
   const bordes = useSafeAreaInsets();
 
   // Mientras se lee el almacenamiento no se sabe si hay sesion. Sin esto, a
   // quien ya entro le parpadea la pantalla de login cada vez que abre la app.
-  if (!listo) {
+  if (!listo || !tipografia) {
     return (
       <View style={[e.todo, e.centrado]}>
-        <ActivityIndicator size="large" color="#1a73e8" />
+        <ActivityIndicator size="large" color="#1a1815" />
       </View>
     );
   }
