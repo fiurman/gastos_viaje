@@ -85,7 +85,8 @@ export const api = {
     pedir<{ usuarioId: string; email: string; nombre: string | null }>('/yo', { token }),
 
   viajes: (token: string) =>
-    pedir<{ id: string; nombre: string; creado_en: string }[]>('/viajes', { token }),
+    pedir<{ id: string; nombre: string; creado_en: string;
+            miembros: number; gastos: number }[]>('/viajes', { token }),
 
   crearViaje: (token: string, nombre: string) =>
     pedir<{ id: string }>('/viajes', { metodo: 'POST', cuerpo: { nombre }, token }),
@@ -97,7 +98,52 @@ export const api = {
 
   saldo: (token: string, viaje: string) =>
     pedir<SaldoUsuario[]>(`/viajes/${viaje}/saldo`, { token }),
+
+  /** Sube lo que haya pendiente y baja lo que cambio desde `desde`.
+   *
+   *  Un solo viaje de ida y vuelta: con señal intermitente, dos pedidos
+   *  separados tienen el doble de posibilidades de que uno falle y el telefono
+   *  quede a medio sincronizar. */
+  sincronizar: (token: string, viaje: string, desde: string | null, gastos: GastoSubida[]) =>
+    pedir<{ gastos: GastoBajado[]; partes: ParteBajada[]; hasta: string }>(
+      `/viajes/${viaje}/sync`, { metodo: 'POST', cuerpo: { desde, gastos }, token },
+    ),
 };
+
+/** Como sale un gasto de la app hacia el servidor. */
+export interface GastoSubida {
+  id: string;
+  viajeId: string;
+  pagadoPor: string;
+  /** Centavos, entero. Nunca decimales. */
+  monto: number;
+  moneda: string;
+  descripcion: string;
+  fecha: string;
+  /** El reloj del telefono. Solo decide quien gana si dos ediciones chocan; el
+   *  cursor de la sincronizacion lo lleva el servidor. */
+  editadoEn: string;
+  borradoEn?: string | null;
+  partes: { usuarioId: string; monto: number }[];
+}
+
+export interface GastoBajado {
+  id: string;
+  viaje_id: string;
+  pagado_por: string;
+  monto: number;
+  moneda: string;
+  descripcion: string;
+  fecha: string;
+  actualizado_en: string;
+  borrado_en: string | null;
+}
+
+export interface ParteBajada {
+  gasto_id: string;
+  usuario_id: string;
+  monto: number;
+}
 
 export interface SaldoUsuario {
   usuarioId: string;

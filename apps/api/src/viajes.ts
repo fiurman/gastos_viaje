@@ -31,12 +31,23 @@ export async function crearViaje(
   return { id };
 }
 
+/** Los viajes de alguien, el mas probable primero.
+ *
+ *  Ordena por cantidad de gente y despues por antiguedad, y no por fecha de
+ *  creacion como antes. El motivo es un caso real: si alguien entra a la app
+ *  antes de que lo sumen a un viaje, se le crea uno vacio para el solo; cuando
+ *  despues lo suman al viaje de verdad, el vacio era el mas nuevo y la app
+ *  seguia mostrando ese. Un viaje compartido y con gastos es casi siempre el
+ *  que la persona queria ver. */
 export async function misViajes(usuarioId: string, env: Env) {
   const { results } = await env.DB
-    .prepare(`select v.id, v.nombre, v.creado_en
+    .prepare(`select v.id, v.nombre, v.creado_en,
+                     (select count(*) from miembros x where x.viaje_id = v.id) miembros,
+                     (select count(*) from gastos g
+                       where g.viaje_id = v.id and g.borrado_en is null) gastos
                 from viajes v join miembros m on m.viaje_id = v.id
                where m.usuario_id = ?
-               order by v.creado_en desc`)
+               order by miembros desc, gastos desc, v.creado_en asc`)
     .bind(usuarioId).all();
   return results;
 }
