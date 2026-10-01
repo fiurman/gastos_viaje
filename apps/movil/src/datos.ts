@@ -8,7 +8,8 @@
  *  proposito: un saldo que necesita internet no sirve justo cuando mas lo
  *  necesitas, parado en la caja decidiendo quien paga. */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { api, ErrorApi, type SaldoUsuario } from './api';
 import { calcularSaldo } from './cuentas';
@@ -97,6 +98,40 @@ export function useViaje(token: string, usuarioId: string) {
     // dispararse en bucle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Sincronizar al volver a la app y cada tanto mientras este abierta.
+   *
+   *  Es lo que hace que veas lo que cargo el otro sin tirar para abajo. Sin
+   *  notificaciones push todavia, esto es lo que mas se le parece, y ademas
+   *  sigue siendo util cuando las haya: un aviso se puede perder, volver a
+   *  abrir la app no.
+   *
+   *  Se guarda en una `ref` porque `sincronizar` cambia de identidad en cada
+   *  render; con el en las dependencias, el intervalo se rearmaria sin parar. */
+  const ultimaSync = useRef(sincronizar);
+  ultimaSync.current = sincronizar;
+
+  useEffect(() => {
+    const id = viaje?.id;
+    if (!id) return;
+
+    const poner = () => {
+      void ultimaSync.current(id)
+        .then(() => setSinRed(false))
+        .catch((e) => { if (e instanceof ErrorApi && e.codigo === 'sin_red') setSinRed(true); });
+    };
+
+    // Al volver a la app, que es cuando la persona esta mirando.
+    const sub = AppState.addEventListener('change', (estado) => {
+      if (estado === 'active') poner();
+    });
+
+    // Y cada medio minuto con la app abierta. Con dos personas son unos pocos
+    // pedidos por hora, muy lejos de cualquier tope.
+    const reloj = setInterval(poner, 30_000);
+
+    return () => { sub.remove(); clearInterval(reloj); };
+  }, [viaje?.id]);
 
   const agregar = useCallback(async (nuevo: {
     monto: number; moneda: string; descripcion: string; pagadoPor: string;

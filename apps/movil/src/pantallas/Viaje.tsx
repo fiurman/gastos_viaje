@@ -23,6 +23,7 @@ import {
   ActivityIndicator, Alert, FlatList, Modal, Pressable, RefreshControl,
   StyleSheet, Text, View,
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
 import { ErrorApi } from '../api';
 import { guardarPreferencia, preferencia } from '../local';
 import { cuando, plata, useViaje, type Gasto, type Miembro } from '../datos';
@@ -83,15 +84,6 @@ export function Viaje({
   const hoy = new Date().toISOString().slice(0, 10);
 
   function confirmarBorrado(g: Gasto) {
-    // Los viejos no tienen autor guardado: se dejan borrar, que es lo que
-    // pasaba antes. El servidor igual rechaza lo que no corresponde.
-    if (g.creadoPor !== null && g.creadoPor !== usuarioId) {
-      Alert.alert(
-        'No lo cargaste vos',
-        'Sólo puede borrarlo quien lo cargó. Pedíselo y lo borra desde su teléfono.',
-      );
-      return;
-    }
     Alert.alert(
       'Borrar gasto',
       `«${g.descripcion}» por ${plata(g.monto, g.moneda)}.\n\nSe borra para los dos.`,
@@ -198,11 +190,15 @@ export function Viaje({
             </Text>
           </>
         }
-        renderItem={({ item }) => (
-          gastosCortos
-            ? <FilaCompacta gasto={item} yo={usuarioId} hoy={hoy} onBorrar={() => confirmarBorrado(item)} />
-            : <Fila gasto={item} yo={usuarioId} otro={nombreOtro} hoy={hoy} onBorrar={() => confirmarBorrado(item)} />
-        )}
+        renderItem={({ item }) => {
+          // El tacho solo esta si se puede borrar. Un boton que al tocarlo
+          // explica por que no funciona es peor que no tenerlo.
+          const mio = item.creadoPor === null || item.creadoPor === usuarioId;
+          const borrar = mio ? () => confirmarBorrado(item) : null;
+          return gastosCortos
+            ? <FilaCompacta gasto={item} yo={usuarioId} hoy={hoy} onBorrar={borrar} />
+            : <Fila gasto={item} yo={usuarioId} otro={nombreOtro} hoy={hoy} onBorrar={borrar} />;
+        }}
         refreshControl={
           <RefreshControl
             refreshing={cargandoMas}
@@ -396,16 +392,15 @@ function SaldoTira({
 
 function Fila({
   gasto, yo, otro, hoy, onBorrar,
-}: { gasto: Gasto; yo: string; otro: string; hoy: string; onBorrar: () => void }) {
+}: {
+  gasto: Gasto; yo: string; otro: string; hoy: string; onBorrar: (() => void) | null;
+}) {
   const loPagueYo = gasto.pagadoPor === yo;
   const miParte = gasto.partes.find((p) => p.usuarioId === yo)?.monto ?? 0;
   const mitad = Math.abs(miParte * 2 - gasto.monto) <= 1;
 
   return (
-    <Pressable
-      style={({ pressed }) => [e.fila, pressed && e.filaApretada]}
-      onLongPress={onBorrar} delayLongPress={400}
-    >
+    <View style={e.fila}>
       <View style={e.inicial}>
         <Text style={e.inicialTexto}>{(loPagueYo ? 'V' : otro[0] ?? '?').toUpperCase()}</Text>
       </View>
@@ -418,7 +413,12 @@ function Fila({
         </Text>
       </View>
       <Text style={e.monto}>{plata(gasto.monto, gasto.moneda)}</Text>
-    </Pressable>
+      {onBorrar ? (
+        <Pressable style={e.tacho} onPress={onBorrar} hitSlop={10}>
+          <MaterialIcons name="delete-outline" size={20} color="#9aa0a6" />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -426,19 +426,21 @@ function Fila({
  *  doble en pantalla y se recorre la lista de una mirada. */
 function FilaCompacta({
   gasto, yo, hoy, onBorrar,
-}: { gasto: Gasto; yo: string; hoy: string; onBorrar: () => void }) {
+}: { gasto: Gasto; yo: string; hoy: string; onBorrar: (() => void) | null }) {
   const loPagueYo = gasto.pagadoPor === yo;
   return (
-    <Pressable
-      style={({ pressed }) => [e.filaCorta, pressed && e.filaApretada]}
-      onLongPress={onBorrar} delayLongPress={400}
-    >
+    <View style={e.filaCorta}>
       <View style={[e.punto, loPagueYo ? e.puntoMio : e.puntoSuyo]} />
       <Text style={e.descripcionCorta} numberOfLines={1}>{gasto.descripcion}</Text>
       <Text style={e.fechaCorta}>{cuando(gasto.fecha, hoy)}</Text>
       {gasto.pendiente ? <Text style={e.pendiente}>↑</Text> : null}
       <Text style={e.montoCorto}>{plata(gasto.monto, gasto.moneda)}</Text>
-    </Pressable>
+      {onBorrar ? (
+        <Pressable style={e.tachoChico} onPress={onBorrar} hitSlop={10}>
+          <MaterialIcons name="delete-outline" size={17} color="#b0b5bb" />
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -538,6 +540,10 @@ const e = StyleSheet.create({
   descripcion: { fontSize: 15.5, color: '#15181c' },
   detalle: { fontSize: 12.5, color: '#7a8089', marginTop: 2 },
   monto: { fontSize: 15.5, fontWeight: '600', color: '#15181c', fontVariant: ['tabular-nums'] },
+  // Separado del importe: con el tacho pegado al numero, el dedo que va a
+  // mirar cuanto salio termina borrando el gasto.
+  tacho: { paddingLeft: 10, paddingVertical: 6 },
+  tachoChico: { paddingLeft: 8, paddingVertical: 4 },
 
   filaCorta: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
