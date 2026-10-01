@@ -1,11 +1,17 @@
 /** Cargar un gasto.
  *
- *  Pensada para usarse parado en una caja con una mano: monto, qué fue, y el
- *  resto con valores por defecto razonables.
+ *  Pensada para usarse parado en una caja, con una mano y apurado. De ahi las
+ *  tres decisiones de la pantalla:
  *
- *  El reparto se elige en porcentajes pero **se muestra en plata**. Nadie
- *  discute un 70/30; se discute quien pone cuanto. Ver los dos numeros antes de
- *  guardar evita la mitad de los malentendidos. */
+ *  - **El monto manda.** Ocupa un bloque oscuro arriba, a pantalla completa de
+ *    ancho, con el simbolo de la moneda pegado. Es lo primero que se tipea y lo
+ *    unico que no tiene valor por defecto.
+ *  - **La descripcion se toca, no se escribe.** Seis atajos cubren casi todo lo
+ *    que se gasta en un viaje. Tipear en un teclado de telefono con la fila
+ *    atras es la fricción de verdad, no los porcentajes.
+ *  - **El reparto se elige en porcentajes y se muestra en plata**, con el
+ *    saldo resultante escrito en castellano. Nadie discute un 70/30; se discute
+ *    quien pone cuanto. */
 
 import { useState } from 'react';
 import {
@@ -14,6 +20,11 @@ import {
 } from 'react-native';
 import { ErrorApi } from '../api';
 import { aCentavos, MONEDAS, plata, repartir, type Miembro } from '../datos';
+
+/** Lo que se gasta en un viaje, en el orden en que se gasta. Llenan la
+ *  descripcion y se pueden seguir editando: son un punto de partida, no una
+ *  categoria cerrada. */
+const ATAJOS_TEXTO = ['Comida', 'Café', 'Transporte', 'Hotel', 'Entradas', 'Súper'];
 
 /** Repartos de un toque. El numero es **tu** parte, no la del otro.
  *
@@ -27,6 +38,8 @@ const atajos = (suyo: string) => [
   { pct: 100, texto: 'Solo mío' },
   { pct: 0, texto: `Solo de ${suyo}` },
 ];
+
+const SIMBOLO: Record<string, string> = { EUR: '€', ARS: '$', USD: 'US$' };
 
 export function NuevoGasto({
   yo, otro, onCerrar, onGuardar,
@@ -102,107 +115,161 @@ export function NuevoGasto({
         style={e.todo}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={e.barra}>
-          <Pressable onPress={onCerrar} hitSlop={10} disabled={guardando}>
-            <Text style={e.cancelar}>Cancelar</Text>
-          </Pressable>
-          <Text style={e.tituloBarra}>Nuevo gasto</Text>
-          <View style={{ width: 64 }} />
-        </View>
+        {/* El monto sobre fondo oscuro: separa lo que se tipea primero de todo
+            lo demas, que ya viene decidido. */}
+        <View style={e.tapa}>
+          <View style={e.barra}>
+            <Pressable onPress={onCerrar} hitSlop={12} disabled={guardando}>
+              <Text style={e.cancelar}>Cancelar</Text>
+            </Pressable>
+            <Text style={e.tituloBarra}>Nuevo gasto</Text>
+            <View style={{ width: 66 }} />
+          </View>
 
-        <ScrollView contentContainerStyle={e.cuerpo} keyboardShouldPersistTaps="handled">
-          <View style={e.montoCaja}>
+          <View style={e.montoFila}>
+            <Text style={[e.simbolo, centavos === null && e.simboloApagado]}>
+              {SIMBOLO[moneda] ?? moneda}
+            </Text>
             <TextInput
               style={e.monto}
               value={montoTexto}
               onChangeText={setMonto}
               placeholder="0,00"
-              placeholderTextColor="#c5c9ce"
+              placeholderTextColor="rgba(255,255,255,.28)"
               keyboardType="decimal-pad"
               inputMode="decimal"
               autoFocus
               editable={!guardando}
+              selectionColor="#8ab4f8"
             />
           </View>
 
-          <Opciones
-            valor={moneda}
-            opciones={MONEDAS.map((m) => ({ clave: m, texto: m }))}
-            onElegir={setMoneda}
-          />
+          <View style={e.monedas}>
+            {MONEDAS.map((m) => {
+              const puesta = m === moneda;
+              return (
+                <Pressable
+                  key={m}
+                  style={[e.moneda, puesta && e.monedaPuesta]}
+                  onPress={() => setMoneda(m)}
+                >
+                  <Text style={[e.monedaTexto, puesta && e.monedaTextoPuesto]}>{m}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
-          <TextInput
-            style={e.campo}
-            value={descripcion}
-            onChangeText={setDescripcion}
-            placeholder="¿Qué fue? Pizza, museo, taxi…"
-            placeholderTextColor="#9aa0a6"
-            editable={!guardando}
-            returnKeyType="done"
-          />
+        <ScrollView
+          style={e.hoja}
+          contentContainerStyle={e.cuerpo}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={e.bloque}>
+            <Text style={e.etiqueta}>¿Qué fue?</Text>
+            <View style={e.chips}>
+              {ATAJOS_TEXTO.map((x) => {
+                const puesto = descripcion.trim() === x;
+                return (
+                  <Pressable
+                    key={x}
+                    style={[e.chip, puesto && e.chipPuesto]}
+                    onPress={() => setDescripcion(puesto ? '' : x)}
+                  >
+                    <Text style={[e.chipTexto, puesto && e.chipTextoPuesto]}>{x}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <TextInput
+              style={e.campo}
+              value={descripcion}
+              onChangeText={setDescripcion}
+              placeholder="o escribilo vos"
+              placeholderTextColor="#9aa0a6"
+              editable={!guardando}
+              returnKeyType="done"
+            />
+          </View>
 
           {otro ? (
             <>
-              <Text style={e.etiqueta}>Pagó</Text>
-              <Opciones
-                valor={pagadoPor}
-                opciones={[
-                  { clave: yo, texto: 'Yo' },
-                  { clave: otro.usuarioId, texto: nombreOtro },
-                ]}
-                onElegir={setPagadoPor}
-              />
-
-              <Text style={e.etiqueta}>Cómo se divide</Text>
-              <View style={e.chips}>
-                {atajos(nombreOtro).map((a) => {
-                  const puesto = !aMano && miPct === a.pct;
-                  return (
-                    <Pressable
-                      key={a.pct}
-                      style={[e.chip, puesto && e.chipPuesto]}
-                      onPress={() => elegirPct(a.pct)}
-                    >
-                      <Text style={[e.chipTexto, puesto && e.chipTextoPuesto]}>
-                        {a.texto}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-                <Pressable
-                  style={[e.chip, aMano && e.chipPuesto]}
-                  onPress={() => setAMano(true)}
-                >
-                  <Text style={[e.chipTexto, aMano && e.chipTextoPuesto]}>Otro %</Text>
-                </Pressable>
+              <View style={e.bloque}>
+                <Text style={e.etiqueta}>Pagó</Text>
+                <View style={e.segmentos}>
+                  {[{ clave: yo, texto: 'Yo' }, { clave: otro.usuarioId, texto: nombreOtro }]
+                    .map((o) => {
+                      const puesto = o.clave === pagadoPor;
+                      return (
+                        <Pressable
+                          key={o.clave}
+                          style={[e.segmento, puesto && e.segmentoPuesto]}
+                          onPress={() => setPagadoPor(o.clave)}
+                        >
+                          <Text
+                            style={[e.segmentoTexto, puesto && e.segmentoTextoPuesto]}
+                            numberOfLines={1}
+                          >
+                            {o.texto}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                </View>
               </View>
 
-              {aMano ? (
-                <View style={e.pctFila}>
-                  <Text style={e.pctEtiqueta}>Tu parte</Text>
-                  <TextInput
-                    style={e.pctCampo}
-                    value={pctTexto}
-                    onChangeText={(t) => {
-                      const limpio = t.replace(/\D/g, '').slice(0, 3);
-                      setPctTexto(limpio);
-                      const n = Number.parseInt(limpio, 10);
-                      if (Number.isFinite(n)) setMiPct(Math.min(100, n));
-                    }}
-                    keyboardType="number-pad"
-                    inputMode="numeric"
-                    maxLength={3}
-                    editable={!guardando}
-                  />
-                  <Text style={e.pctEtiqueta}>%</Text>
+              <View style={e.bloque}>
+                <Text style={e.etiqueta}>Cómo se divide</Text>
+                <View style={e.chips}>
+                  {atajos(nombreOtro).map((a) => {
+                    const puesto = !aMano && miPct === a.pct;
+                    return (
+                      <Pressable
+                        key={a.pct}
+                        style={[e.chip, puesto && e.chipPuesto]}
+                        onPress={() => elegirPct(a.pct)}
+                      >
+                        <Text style={[e.chipTexto, puesto && e.chipTextoPuesto]}>
+                          {a.texto}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  <Pressable
+                    style={[e.chip, aMano && e.chipPuesto]}
+                    onPress={() => setAMano(true)}
+                  >
+                    <Text style={[e.chipTexto, aMano && e.chipTextoPuesto]}>Otro %</Text>
+                  </Pressable>
                 </View>
-              ) : null}
+
+                {aMano ? (
+                  <View style={e.pctFila}>
+                    <Text style={e.pctEtiqueta}>Tu parte</Text>
+                    <TextInput
+                      style={e.pctCampo}
+                      value={pctTexto}
+                      onChangeText={(t) => {
+                        const limpio = t.replace(/\D/g, '').slice(0, 3);
+                        setPctTexto(limpio);
+                        const n = Number.parseInt(limpio, 10);
+                        if (Number.isFinite(n)) setMiPct(Math.min(100, n));
+                      }}
+                      keyboardType="number-pad"
+                      inputMode="numeric"
+                      maxLength={3}
+                      editable={!guardando}
+                    />
+                    <Text style={e.pctEtiqueta}>%</Text>
+                  </View>
+                ) : null}
+              </View>
 
               {/* En plata, que es lo que se discute de verdad. Y debajo, en
                   quien queda la deuda: un 0 / 100 se lee mal al apuro. */}
               {vistaPrevia ? (
-                <View>
-                  <View style={e.previa}>
+                <View style={e.previa}>
+                  <View style={e.previaFila}>
                     <View style={e.previaLado}>
                       <Text style={e.previaQuien}>Vos</Text>
                       <Text style={e.previaMonto}>{plata(miParte, moneda)}</Text>
@@ -218,126 +285,139 @@ export function NuevoGasto({
               ) : null}
             </>
           ) : (
-            <Text style={e.aviso}>
-              Todavía estás solo en el viaje. Sumá a la otra persona para que los
-              gastos se repartan.
-            </Text>
+            <View style={e.bloque}>
+              <Text style={e.aviso}>
+                Todavía estás solo en el viaje. Sumá a la otra persona para que
+                los gastos se repartan.
+              </Text>
+            </View>
           )}
 
           {error ? <Text style={e.error}>{error}</Text> : null}
         </ScrollView>
 
-        <Pressable
-          style={({ pressed }) => [
-            e.guardar, !puede && e.guardarApagado, pressed && puede && e.guardarApretado,
-          ]}
-          onPress={guardar}
-          disabled={!puede}
-        >
-          {guardando
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={e.guardarTexto}>Guardar</Text>}
-        </Pressable>
+        <View style={e.pie}>
+          <Pressable
+            style={({ pressed }) => [
+              e.guardar, !puede && e.guardarApagado, pressed && puede && e.guardarApretado,
+            ]}
+            onPress={guardar}
+            disabled={!puede}
+          >
+            {guardando
+              ? <ActivityIndicator color="#fff" />
+              : (
+                <Text style={e.guardarTexto}>
+                  {centavos === null ? 'Guardar' : `Guardar ${plata(centavos, moneda)}`}
+                </Text>
+              )}
+          </Pressable>
+        </View>
       </KeyboardAvoidingView>
     </Modal>
   );
 }
 
-function Opciones({
-  valor, opciones, onElegir,
-}: {
-  valor: string;
-  opciones: { clave: string; texto: string }[];
-  onElegir: (v: string) => void;
-}) {
-  return (
-    <View style={e.opciones}>
-      {opciones.map((o) => {
-        const elegida = o.clave === valor;
-        return (
-          <Pressable
-            key={o.clave}
-            style={[e.opcion, elegida && e.opcionElegida]}
-            onPress={() => onElegir(o.clave)}
-          >
-            <Text style={[e.opcionTexto, elegida && e.opcionTextoElegido]} numberOfLines={1}>
-              {o.texto}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
+const TINTA = '#15181c';
 
 const e = StyleSheet.create({
-  todo: { flex: 1, backgroundColor: '#fff' },
+  todo: { flex: 1, backgroundColor: TINTA },
+
+  tapa: { backgroundColor: TINTA, paddingBottom: 22 },
   barra: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#eceff1',
+    paddingHorizontal: 20, paddingTop: 52, paddingBottom: 10,
   },
-  tituloBarra: { fontSize: 17, fontWeight: '600', color: '#15181c' },
-  cancelar: { color: '#1a73e8', fontSize: 16, width: 64 },
+  tituloBarra: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,.9)' },
+  cancelar: { color: '#8ab4f8', fontSize: 16, width: 66 },
 
-  cuerpo: { padding: 20, gap: 14, paddingBottom: 40 },
-  montoCaja: { alignItems: 'center', paddingVertical: 4 },
+  montoFila: {
+    flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center',
+    gap: 8, paddingHorizontal: 20, paddingTop: 10,
+  },
+  simbolo: { fontSize: 30, fontWeight: '600', color: '#8ab4f8' },
+  simboloApagado: { color: 'rgba(255,255,255,.28)' },
   monto: {
-    fontSize: 54, fontWeight: '700', color: '#15181c',
-    textAlign: 'center', minWidth: 180, fontVariant: ['tabular-nums'],
+    fontSize: 56, fontWeight: '700', color: '#fff', letterSpacing: -2,
+    minWidth: 120, maxWidth: 260, textAlign: 'left', padding: 0,
+    fontVariant: ['tabular-nums'],
   },
-  campo: {
-    borderWidth: 1, borderColor: '#dadce0', borderRadius: 12,
-    paddingHorizontal: 16, paddingVertical: 14, fontSize: 17, color: '#15181c',
-  },
-  etiqueta: { fontSize: 14, color: '#5f6368', marginTop: 4 },
 
-  opciones: { flexDirection: 'row', gap: 8 },
-  opcion: {
-    flex: 1, paddingVertical: 13, borderRadius: 11, alignItems: 'center',
-    backgroundColor: '#f1f3f4',
+  monedas: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 16 },
+  moneda: {
+    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,.08)',
   },
-  opcionElegida: { backgroundColor: '#1a73e8' },
-  opcionTexto: { fontSize: 15, fontWeight: '600', color: '#5f6368' },
-  opcionTextoElegido: { color: '#fff' },
+  monedaPuesta: { backgroundColor: '#fff' },
+  monedaTexto: { fontSize: 12.5, fontWeight: '700', color: 'rgba(255,255,255,.62)', letterSpacing: .4 },
+  monedaTextoPuesto: { color: TINTA },
 
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // Se monta sobre el bloque oscuro: la pantalla se lee como dos capas y no
+  // como un formulario largo.
+  hoja: {
+    flex: 1, backgroundColor: '#fff',
+    borderTopLeftRadius: 22, borderTopRightRadius: 22,
+  },
+  cuerpo: { padding: 20, paddingBottom: 28, gap: 20 },
+
+  bloque: { gap: 10 },
+  etiqueta: {
+    fontSize: 11.5, fontWeight: '700', color: '#80868b',
+    textTransform: 'uppercase', letterSpacing: .7,
+  },
+
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: {
-    paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999,
     backgroundColor: '#f1f3f4',
   },
-  chipPuesto: { backgroundColor: '#1a73e8' },
-  chipTexto: { fontSize: 14, fontWeight: '600', color: '#5f6368' },
+  chipPuesto: { backgroundColor: TINTA },
+  chipTexto: { fontSize: 13.5, fontWeight: '600', color: '#5f6368' },
   chipTextoPuesto: { color: '#fff' },
 
+  campo: {
+    borderWidth: 1, borderColor: '#dadce0', borderRadius: 12,
+    paddingHorizontal: 15, paddingVertical: 13, fontSize: 16, color: TINTA,
+  },
+
+  segmentos: {
+    flexDirection: 'row', backgroundColor: '#f1f3f4', borderRadius: 12, padding: 3,
+  },
+  segmento: { flex: 1, paddingVertical: 11, borderRadius: 9, alignItems: 'center' },
+  segmentoPuesto: {
+    backgroundColor: '#fff',
+    boxShadow: '0px 1px 3px rgba(0, 0, 0, 0.14)',
+  },
+  segmentoTexto: { fontSize: 14.5, fontWeight: '600', color: '#80868b' },
+  segmentoTextoPuesto: { color: TINTA },
+
   pctFila: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  pctEtiqueta: { fontSize: 15, color: '#5f6368' },
+  pctEtiqueta: { fontSize: 14.5, color: '#5f6368' },
   pctCampo: {
     borderWidth: 1, borderColor: '#dadce0', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 18, minWidth: 74,
-    textAlign: 'center', color: '#15181c', fontVariant: ['tabular-nums'],
+    paddingHorizontal: 14, paddingVertical: 9, fontSize: 17, minWidth: 72,
+    textAlign: 'center', color: TINTA, fontVariant: ['tabular-nums'],
   },
 
-  previa: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#f1f3f4', borderRadius: 14, padding: 16, marginTop: 4,
-  },
-  previaLado: { flex: 1, alignItems: 'center', gap: 4 },
-  previaLinea: { width: 1, alignSelf: 'stretch', backgroundColor: '#dadce0' },
-  previaQuien: { fontSize: 13, color: '#80868b' },
+  previa: { backgroundColor: '#f8f9fa', borderRadius: 16, padding: 16, gap: 10 },
+  previaFila: { flexDirection: 'row', alignItems: 'center' },
+  previaLado: { flex: 1, alignItems: 'center', gap: 3 },
+  previaLinea: { width: 1, alignSelf: 'stretch', backgroundColor: '#e1e4e8' },
+  previaQuien: { fontSize: 12, color: '#80868b' },
   previaMonto: {
-    fontSize: 19, fontWeight: '700', color: '#15181c', fontVariant: ['tabular-nums'],
+    fontSize: 19, fontWeight: '700', color: TINTA, fontVariant: ['tabular-nums'],
   },
-  consecuencia: { fontSize: 13.5, color: '#5f6368', textAlign: 'center', marginTop: 9 },
+  consecuencia: { fontSize: 13.5, color: '#5f6368', textAlign: 'center' },
 
-  aviso: { fontSize: 14, color: '#80868b', lineHeight: 20 },
+  aviso: { fontSize: 14.5, color: '#80868b', lineHeight: 21 },
   error: { color: '#c5221f', fontSize: 15, lineHeight: 21 },
 
+  pie: { backgroundColor: '#fff', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 22 },
   guardar: {
-    margin: 20, backgroundColor: '#1a73e8', borderRadius: 14,
-    paddingVertical: 17, alignItems: 'center', justifyContent: 'center', minHeight: 56,
+    backgroundColor: TINTA, borderRadius: 14, paddingVertical: 16,
+    alignItems: 'center', justifyContent: 'center', minHeight: 54,
   },
-  guardarApagado: { backgroundColor: '#c5c9ce' },
-  guardarApretado: { backgroundColor: '#1557b0' },
-  guardarTexto: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  guardarApagado: { backgroundColor: '#dadce0' },
+  guardarApretado: { backgroundColor: '#000' },
+  guardarTexto: { color: '#fff', fontSize: 16.5, fontWeight: '600' },
 });

@@ -21,7 +21,7 @@ export type Gasto = GastoLocal;
 
 export interface Miembro { usuarioId: string; email: string }
 
-export { MONEDAS, plata, aCentavos, repartir, calcularSaldo } from './cuentas';
+export { MONEDAS, plata, aCentavos, repartir, calcularSaldo, cuando } from './cuentas';
 export type { NetoPorMoneda } from './cuentas';
 
 export function useViaje(token: string, usuarioId: string) {
@@ -112,6 +112,9 @@ export function useViaje(token: string, usuarioId: string) {
       moneda: nuevo.moneda,
       descripcion: nuevo.descripcion,
       fecha: new Date().toISOString().slice(0, 10),
+      // Quien lo carga es quien despues lo puede borrar. El servidor tambien
+      // lo exige: esconder el boton no alcanza.
+      creadoPor: usuarioId,
       editadoEn: new Date().toISOString(),
       borradoEn: null,
       partes: nuevo.partes,
@@ -131,7 +134,7 @@ export function useViaje(token: string, usuarioId: string) {
       // ni nada que reintentar a mano.
       if (e instanceof ErrorApi && e.codigo === 'sin_red') setSinRed(true);
     }
-  }, [viaje, refrescarPantalla, sincronizar]);
+  }, [viaje, usuarioId, refrescarPantalla, sincronizar]);
 
   /** Borra un gasto.
    *

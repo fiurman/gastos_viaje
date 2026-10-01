@@ -132,6 +132,7 @@ export interface GastoSubida {
   moneda: string;
   descripcion: string;
   fecha: string;
+  creadoPor: string | null;
   /** El reloj del telefono. Solo decide quien gana si dos ediciones chocan; el
    *  cursor de la sincronizacion lo lleva el servidor. */
   editadoEn: string;
@@ -147,6 +148,7 @@ export interface GastoBajado {
   moneda: string;
   descripcion: string;
   fecha: string;
+  creado_por: string | null;
   actualizado_en: string;
   borrado_en: string | null;
 }

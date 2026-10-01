@@ -135,3 +135,26 @@ export function calcularSaldo(
     })
     .sort((a, b) => a.moneda.localeCompare(b.moneda));
 }
+
+const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+               'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** Una fecha `AAAA-MM-DD` dicha como la diria una persona.
+ *
+ *  "hoy" y "ayer" en vez del numero porque es lo que se mira: en un viaje de
+ *  dos semanas, lo que importa de un gasto es si fue recien o hace unos dias,
+ *  no la fecha exacta. Mas atras si va el dia y el mes.
+ *
+ *  `hoyISO` se pasa en vez de leer el reloj adentro para que se pueda probar. */
+export function cuando(fecha: string, hoyISO: string): string {
+  const dia = (s: string) => Date.parse(`${s}T00:00:00Z`);
+  const diff = Math.round((dia(hoyISO) - dia(fecha)) / 86_400_000);
+
+  if (diff === 0) return 'hoy';
+  if (diff === 1) return 'ayer';
+
+  const partes = fecha.split('-');
+  const mes = MESES[Number(partes[1]) - 1];
+  if (!mes) return fecha;
+  return `${Number(partes[2])} ${mes}`;
+}

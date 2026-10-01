@@ -29,6 +29,7 @@ export async function abrir(): Promise<SQLite.SQLiteDatabase> {
       moneda       text not null,
       descripcion  text not null,
       fecha        text not null,
+      creado_por   text,
       editado_en   text not null,
       borrado_en   text,
       -- 1 mientras el servidor todavia no lo confirmo. Es la cola de subida:
@@ -48,6 +49,11 @@ export async function abrir(): Promise<SQLite.SQLiteDatabase> {
       valor  text
     );
   `);
+
+  // Para los telefonos que ya tenian la base creada antes de esta columna.
+  // SQLite no tiene "add column if not exists", asi que se intenta y se ignora
+  // el error de que ya exista.
+  await db.execAsync(`alter table gastos add column creado_por text`).catch(() => {});
 
   base = db;
   return db;
@@ -78,6 +84,9 @@ export interface GastoLocal {
   id: string;
   viajeId: string;
   pagadoPor: string;
+  /** Quien lo cargo. Solo esa persona puede borrarlo o cambiarlo; el servidor
+   *  tambien lo exige, no alcanza con esconder el boton. */
+  creadoPor: string | null;
   monto: number;
   moneda: string;
   descripcion: string;
@@ -94,15 +103,15 @@ export async function guardarLocal(g: Omit<GastoLocal, 'pendiente'>): Promise<vo
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `insert into gastos (id, viaje_id, pagado_por, monto, moneda, descripcion,
-                           fecha, editado_en, borrado_en, pendiente)
-       values (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+                           fecha, creado_por, editado_en, borrado_en, pendiente)
+       values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
        on conflict(id) do update set
          pagado_por = excluded.pagado_por, monto = excluded.monto,
          moneda = excluded.moneda, descripcion = excluded.descripcion,
          fecha = excluded.fecha, editado_en = excluded.editado_en,
          borrado_en = excluded.borrado_en, pendiente = 1`,
       g.id, g.viajeId, g.pagadoPor, g.monto, g.moneda, g.descripcion,
-      g.fecha, g.editadoEn, g.borradoEn,
+      g.fecha, g.creadoPor, g.editadoEn, g.borradoEn,
     );
     await db.runAsync(`delete from partes where gasto_id = ?`, g.id);
     for (const p of g.partes) {
@@ -119,7 +128,8 @@ export async function pendientes(viajeId: string): Promise<GastoSubida[]> {
   const db = await abrir();
   const filas = await db.getAllAsync<{
     id: string; pagado_por: string; monto: number; moneda: string;
-    descripcion: string; fecha: string; editado_en: string; borrado_en: string | null;
+    descripcion: string; fecha: string; creado_por: string | null;
+    editado_en: string; borrado_en: string | null;
   }>(`select * from gastos where viaje_id = ? and pendiente = 1`, viajeId);
 
   const salida: GastoSubida[] = [];
@@ -129,8 +139,8 @@ export async function pendientes(viajeId: string): Promise<GastoSubida[]> {
     );
     salida.push({
       id: f.id, viajeId, pagadoPor: f.pagado_por, monto: f.monto, moneda: f.moneda,
-      descripcion: f.descripcion, fecha: f.fecha, editadoEn: f.editado_en,
-      borradoEn: f.borrado_en,
+      descripcion: f.descripcion, fecha: f.fecha, creadoPor: f.creado_por,
+      editadoEn: f.editado_en, borradoEn: f.borrado_en,
       partes: partes.map((p) => ({ usuarioId: p.usuario_id, monto: p.monto })),
     });
   }
@@ -168,14 +178,15 @@ export async function guardarBajados(
 
       await db.runAsync(
         `insert into gastos (id, viaje_id, pagado_por, monto, moneda, descripcion,
-                             fecha, editado_en, borrado_en, pendiente)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                             fecha, creado_por, editado_en, borrado_en, pendiente)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
          on conflict(id) do update set
            pagado_por = excluded.pagado_por, monto = excluded.monto,
            moneda = excluded.moneda, descripcion = excluded.descripcion,
-           fecha = excluded.fecha, borrado_en = excluded.borrado_en, pendiente = 0`,
+           fecha = excluded.fecha, creado_por = excluded.creado_por,
+           borrado_en = excluded.borrado_en, pendiente = 0`,
         g.id, g.viaje_id, g.pagado_por, g.monto, g.moneda, g.descripcion,
-        g.fecha, g.actualizado_en, g.borrado_en,
+        g.fecha, g.creado_por, g.actualizado_en, g.borrado_en,
       );
 
       await db.runAsync(`delete from partes where gasto_id = ?`, g.id);
@@ -194,8 +205,8 @@ export async function leerGastos(viajeId: string): Promise<GastoLocal[]> {
   const db = await abrir();
   const filas = await db.getAllAsync<{
     id: string; viaje_id: string; pagado_por: string; monto: number; moneda: string;
-    descripcion: string; fecha: string; editado_en: string; borrado_en: string | null;
-    pendiente: number;
+    descripcion: string; fecha: string; creado_por: string | null;
+    editado_en: string; borrado_en: string | null; pendiente: number;
   }>(
     `select * from gastos where viaje_id = ? and borrado_en is null
       order by fecha desc, editado_en desc`, viajeId,
@@ -215,6 +226,7 @@ export async function leerGastos(viajeId: string): Promise<GastoLocal[]> {
   return filas.map((f) => ({
     id: f.id, viajeId: f.viaje_id, pagadoPor: f.pagado_por, monto: f.monto,
     moneda: f.moneda, descripcion: f.descripcion, fecha: f.fecha,
+    creadoPor: f.creado_por,
     editadoEn: f.editado_en, borradoEn: f.borrado_en, pendiente: f.pendiente === 1,
     partes: porGasto.get(f.id) ?? [],
   }));

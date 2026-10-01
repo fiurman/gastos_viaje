@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { ErrorApi } from '../api';
 import { guardarPreferencia, preferencia } from '../local';
-import { plata, useViaje, type Gasto, type Miembro } from '../datos';
+import { cuando, plata, useViaje, type Gasto, type Miembro } from '../datos';
 import { NuevoGasto } from './NuevoGasto';
 import { Sumar } from './Sumar';
 
@@ -80,7 +80,18 @@ export function Viaje({
   const saldo = v.miSaldo.find((m) => m.moneda === activa) ?? null;
   const nombreOtro = v.otro ? v.otro.email.split('@')[0]! : 'el otro';
 
+  const hoy = new Date().toISOString().slice(0, 10);
+
   function confirmarBorrado(g: Gasto) {
+    // Los viejos no tienen autor guardado: se dejan borrar, que es lo que
+    // pasaba antes. El servidor igual rechaza lo que no corresponde.
+    if (g.creadoPor !== null && g.creadoPor !== usuarioId) {
+      Alert.alert(
+        'No lo cargaste vos',
+        'Sólo puede borrarlo quien lo cargó. Pedíselo y lo borra desde su teléfono.',
+      );
+      return;
+    }
     Alert.alert(
       'Borrar gasto',
       `«${g.descripcion}» por ${plata(g.monto, g.moneda)}.\n\nSe borra para los dos.`,
@@ -189,8 +200,8 @@ export function Viaje({
         }
         renderItem={({ item }) => (
           gastosCortos
-            ? <FilaCompacta gasto={item} yo={usuarioId} onBorrar={() => confirmarBorrado(item)} />
-            : <Fila gasto={item} yo={usuarioId} otro={nombreOtro} onBorrar={() => confirmarBorrado(item)} />
+            ? <FilaCompacta gasto={item} yo={usuarioId} hoy={hoy} onBorrar={() => confirmarBorrado(item)} />
+            : <Fila gasto={item} yo={usuarioId} otro={nombreOtro} hoy={hoy} onBorrar={() => confirmarBorrado(item)} />
         )}
         refreshControl={
           <RefreshControl
@@ -384,8 +395,8 @@ function SaldoTira({
 }
 
 function Fila({
-  gasto, yo, otro, onBorrar,
-}: { gasto: Gasto; yo: string; otro: string; onBorrar: () => void }) {
+  gasto, yo, otro, hoy, onBorrar,
+}: { gasto: Gasto; yo: string; otro: string; hoy: string; onBorrar: () => void }) {
   const loPagueYo = gasto.pagadoPor === yo;
   const miParte = gasto.partes.find((p) => p.usuarioId === yo)?.monto ?? 0;
   const mitad = Math.abs(miParte * 2 - gasto.monto) <= 1;
@@ -401,7 +412,7 @@ function Fila({
       <View style={{ flex: 1 }}>
         <Text style={e.descripcion} numberOfLines={1}>{gasto.descripcion}</Text>
         <Text style={e.detalle}>
-          {loPagueYo ? 'Pagaste vos' : `Pagó ${otro}`}
+          {cuando(gasto.fecha, hoy)} · {loPagueYo ? 'pagaste vos' : `pagó ${otro}`}
           {!mitad ? ` · tu parte ${plata(miParte, gasto.moneda)}` : ''}
           {gasto.pendiente ? ' · sin subir' : ''}
         </Text>
@@ -414,8 +425,8 @@ function Fila({
 /** La misma informacion en un renglon. Con veinte gastos cargados, entran el
  *  doble en pantalla y se recorre la lista de una mirada. */
 function FilaCompacta({
-  gasto, yo, onBorrar,
-}: { gasto: Gasto; yo: string; onBorrar: () => void }) {
+  gasto, yo, hoy, onBorrar,
+}: { gasto: Gasto; yo: string; hoy: string; onBorrar: () => void }) {
   const loPagueYo = gasto.pagadoPor === yo;
   return (
     <Pressable
@@ -424,6 +435,7 @@ function FilaCompacta({
     >
       <View style={[e.punto, loPagueYo ? e.puntoMio : e.puntoSuyo]} />
       <Text style={e.descripcionCorta} numberOfLines={1}>{gasto.descripcion}</Text>
+      <Text style={e.fechaCorta}>{cuando(gasto.fecha, hoy)}</Text>
       {gasto.pendiente ? <Text style={e.pendiente}>↑</Text> : null}
       <Text style={e.montoCorto}>{plata(gasto.monto, gasto.moneda)}</Text>
     </Pressable>
@@ -536,6 +548,7 @@ const e = StyleSheet.create({
   puntoMio: { backgroundColor: '#1a73e8' },
   puntoSuyo: { backgroundColor: '#c8ccd2' },
   descripcionCorta: { flex: 1, fontSize: 14.5, color: '#15181c' },
+  fechaCorta: { fontSize: 11.5, color: '#9aa0a6' },
   pendiente: { fontSize: 12, color: '#9a6700', fontWeight: '700' },
   montoCorto: { fontSize: 14.5, fontWeight: '600', color: '#15181c', fontVariant: ['tabular-nums'] },
 

@@ -164,7 +164,11 @@ export async function sincronizar(
            -- Y que la fila que ya estaba sea de ESTE viaje. Sin esto, un
            -- miembro de un viaje podia pisar un gasto de otro mandando su id:
            -- el conflicto se resuelve por id, que es global.
-           and gastos.viaje_id = excluded.viaje_id`)
+           and gastos.viaje_id = excluded.viaje_id
+           -- Y que lo toque quien lo cargo. Borrar o cambiar el gasto del otro
+           -- a sus espaldas es la clase de cosa que termina en una discusion
+           -- sobre plata; si hace falta, se le pide.
+           and gastos.creado_por = excluded.creado_por`)
         .bind(g.id, viajeId, g.pagadoPor, Math.round(g.monto), g.moneda,
               g.descripcion, g.fecha, usuarioId, hasta, hasta,
               g.editadoEn, g.borradoEn ?? null),

@@ -4,7 +4,7 @@
  *  `cuentas.ts` cambia, esto tiene que seguir en verde antes de tocar nada
  *  mas: es el unico archivo donde un error se traduce en plata mal repartida. */
 
-import { aCentavos, calcularSaldo, plata, repartir } from './cuentas.ts';
+import { aCentavos, calcularSaldo, cuando, plata, repartir } from './cuentas.ts';
 
 let pasaron = 0;
 let fallaron = 0;
@@ -178,6 +178,16 @@ es('pesos', plata(125050, 'ARS'), '$ 1.250,50');
 es('dolares', plata(100, 'USD'), 'US$ 1,00');
 es('negativo se muestra sin signo, el signo lo pone la pantalla',
   plata(-500, 'EUR'), '€ 5,00');
+
+grupo('como se dice una fecha');
+es('mismo dia', cuando('2026-10-11', '2026-10-11'), 'hoy');
+es('el dia anterior', cuando('2026-10-10', '2026-10-11'), 'ayer');
+es('hace unos dias', cuando('2026-10-05', '2026-10-11'), '5 oct');
+es('cruzando el mes', cuando('2026-09-30', '2026-10-01'), 'ayer');
+es('cruzando el año', cuando('2025-12-31', '2026-01-01'), 'ayer');
+es('el año pasado', cuando('2025-12-25', '2026-01-10'), '25 dic');
+es('sin cero adelante', cuando('2026-10-03', '2026-10-20'), '3 oct');
+es('una fecha rota se muestra tal cual', cuando('cualquiera', '2026-10-11'), 'cualquiera');
 
 console.log(`\n  ${pasaron} pasaron, ${fallaron} fallaron\n`);
 if (fallaron > 0) process.exitCode = 1;
